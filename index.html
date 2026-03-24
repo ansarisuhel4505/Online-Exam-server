@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Online Exam Server</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* --- CSS Variables for High-Contrast Layout --- */
+        :root {
+            --bg-body: #f0f4f8; 
+            --text-main: #1e293b; 
+            --hf-bg: #1e293b; 
+            --hf-text: #f8fafc; 
+            --hf-accent: #38bdf8; 
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --hf-border: #0f172a; 
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #050505; 
+            --text-main: #f1f5f9; 
+            --hf-bg: #0f172a; 
+            --hf-text: #e2e8f0; 
+            --hf-accent: #60a5fa; 
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --hf-border: #1e293b; 
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+            --shadow-hover: 0 10px 20px -3px rgba(0, 0, 0, 0.6);
+        }
+
+        /* --- Global Styles --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease; }
+        body { background-color: var(--bg-body); color: var(--text-main); display: flex; flex-direction: column; min-height: 100vh; }
+
+        /* --- Header --- */
+        header { background-color: var(--hf-bg); color: var(--hf-text); padding: 15px 5%; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; border-bottom: 2px solid var(--hf-border); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .logo { font-size: 26px; font-weight: 800; color: var(--hf-accent); letter-spacing: 1px; cursor: pointer; text-transform: uppercase; }
+        .nav-controls { display: flex; align-items: center; gap: 25px; }
+        .nav-links { list-style: none; display: flex; gap: 25px; }
+        .nav-links a { text-decoration: none; color: var(--hf-text); font-weight: 600; font-size: 15px; position: relative; padding-bottom: 5px; }
+        .nav-links a::after { content: ''; position: absolute; width: 0; height: 2px; bottom: 0; left: 0; background-color: var(--hf-accent); transition: width 0.3s ease; }
+        .nav-links a:hover { color: var(--hf-accent); }
+        .nav-links a:hover::after { width: 100%; }
+        #theme-toggle { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--hf-text); transition: transform 0.3s ease, color 0.3s ease; }
+        #theme-toggle:hover { transform: rotate(30deg); color: var(--hf-accent); }
+        .hamburger { font-size: 24px; cursor: pointer; display: none; color: var(--hf-text); }
+
+        /* --- Main Content Area --- */
+        main { flex: 1; padding: 60px 5%; display: flex; flex-direction: column; align-items: center; }
+        
+        /* Hero Section & Typewriter Effect */
+        .hero-section { text-align: center; max-width: 800px; margin-bottom: 60px; min-height: 120px; /* Fixed height so layout doesn't jump */ }
+        
+        .hero-section h1 { font-size: 2.8rem; margin-bottom: 15px; color: var(--text-main); display: inline-block; }
+        
+        /* The Blinking Cursor */
+        .cursor {
+            display: inline-block;
+            width: 3px;
+            background-color: var(--hf-accent);
+            margin-left: 5px;
+            animation: blink 0.8s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .hero-section p { font-size: 1.1rem; opacity: 0.8; line-height: 1.6; }
+
+        /* Exam Features Grid */
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; width: 100%; max-width: 1200px; }
+        .feature-card { background-color: var(--card-bg); padding: 30px; border-radius: 12px; text-align: center; border: 1px solid var(--border-color); box-shadow: var(--shadow); transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease; cursor: default; }
+        .feature-card:hover { transform: translateY(-8px); box-shadow: var(--shadow-hover); border-color: var(--hf-accent); }
+        .feature-card i { font-size: 40px; color: var(--hf-accent); margin-bottom: 20px; }
+        .feature-card h3 { margin-bottom: 10px; font-size: 1.2rem; color: var(--text-main); }
+        .feature-card p { font-size: 0.95rem; opacity: 0.8; line-height: 1.5; }
+
+        /* --- Footer --- */
+        footer { background-color: var(--hf-bg); color: var(--hf-text); border-top: 2px solid var(--hf-border); padding: 50px 5% 20px; }
+        .footer-container { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; max-width: 1200px; margin: 0 auto 30px auto; }
+        .footer-section { flex: 1; min-width: 250px; }
+        .footer-section h3 { color: var(--hf-text); margin-bottom: 20px; font-size: 1.2rem; position: relative; display: inline-block; }
+        .footer-section h3::after { content: ''; position: absolute; width: 50%; height: 2px; bottom: -5px; left: 0; background-color: var(--hf-accent); }
+        .footer-section p, .footer-section ul li a { color: var(--hf-text); opacity: 0.8; line-height: 1.6; text-decoration: none; transition: color 0.3s ease, opacity 0.3s ease; }
+        .footer-section ul { list-style: none; }
+        .footer-section ul li { margin-bottom: 10px; }
+        .footer-section ul li a:hover { color: var(--hf-accent); opacity: 1; padding-left: 5px; }
+        .social-icons { display: flex; gap: 15px; }
+        .social-icons a { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background-color: rgba(255,255,255,0.1); color: var(--hf-text); border-radius: 50%; text-decoration: none; font-size: 18px; transition: all 0.3s ease; }
+        .social-icons a:hover { transform: translateY(-5px); color: #fff; }
+        .social-icons a.github:hover { background-color: #333; }
+        .social-icons a.instagram:hover { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); }
+        .social-icons a.facebook:hover { background-color: #1877f2; }
+        .social-icons a.youtube:hover { background-color: #ff0000; }
+        .footer-bottom { text-align: center; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); color: var(--hf-text); opacity: 0.6; font-size: 14px; }
+
+        @media (max-width: 768px) {
+            .hamburger { display: block; }
+            .nav-links { flex-direction: column; position: absolute; top: 100%; right: 5%; background-color: var(--hf-bg); width: 200px; border-radius: 0 0 10px 10px; border: 1px solid var(--hf-border); border-top: none; box-shadow: 0 10px 20px rgba(0,0,0,0.3); max-height: 0; overflow: hidden; opacity: 0; transition: max-height 0.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.4s ease; }
+            .nav-links.active { max-height: 250px; opacity: 1; }
+            .nav-links li { padding: 15px 20px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); }
+            .nav-links li:last-child { border-bottom: none; }
+            .nav-links a::after { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">ExamServer</div>
+        <div class="nav-controls">
+            <ul class="nav-links" id="nav-links">
+                <li><a href="#login">Login</a></li>
+                <li><a href="#teacher">Teacher Portal</a></li>
+                <li><a href="#student">Student Portal</a></li>
+            </ul>
+            <button id="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
+                <i class="fa-solid fa-moon" id="theme-icon"></i>
+            </button>
+            <div class="hamburger" onclick="toggleMenu()">
+                <i class="fa-solid fa-bars-staggered"></i>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="hero-section">
+            <h1><span id="typewriter-text"></span><span class="cursor">&nbsp;</span></h1>
+            <p>Conduct secure, scalable, and fair examinations with our advanced proctoring and real-time auto-evaluation engine designed for modern educational institutes.</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <i class="fa-solid fa-shield-halved"></i>
+                <h3>Secure Browser Environment</h3>
+                <p>Prevents cheating by blocking right-clicks, tab switching, and copy-pasting during active examinations.</p>
+            </div>
+            <div class="feature-card">
+                <i class="fa-solid fa-bolt"></i>
+                <h3>Instant Auto-Evaluation</h3>
+                <p>Get results immediately after submission. Our backend engine cross-verifies answers with the official key in milliseconds.</p>
+            </div>
+            <div class="feature-card">
+                <i class="fa-solid fa-chart-pie"></i>
+                <h3>Deep Analytics</h3>
+                <p>Visual graphical representation of student performance, topic-wise strengths, and class ranking.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-container">
+            <div class="footer-section">
+                <h3>About System</h3>
+                <p>We provide a highly secure environment for competitive and academic exams, bridging the gap between educators and modern technology.</p>
+            </div>
+            <div class="footer-section">
+                <h3>Important Links</h3>
+                <ul>
+                    <li><a href="#"><i class="fa-solid fa-angle-right"></i> Exam Guidelines</a></li>
+                    <li><a href="#"><i class="fa-solid fa-angle-right"></i> Privacy Policy</a></li>
+                    <li><a href="#"><i class="fa-solid fa-angle-right"></i> Help & Support</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Connect With Us</h3>
+                <div class="social-icons">
+                    <a href="https://github.com" target="_blank" class="github"><i class="fa-brands fa-github"></i></a>
+                    <a href="#" target="_blank" class="instagram"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#" target="_blank" class="facebook"><i class="fa-brands fa-facebook-f"></i></a>
+                    <a href="#" target="_blank" class="youtube"><i class="fa-brands fa-youtube"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            &copy; 2026 Online Exam Server. Powered by Suhel(AI) Technology.
+        </div>
+    </footer>
+
+    <script>
+        // --- Navigation & Theme Logic ---
+        function toggleMenu() { document.getElementById('nav-links').classList.toggle('active'); }
+        
+        function toggleTheme() {
+            const body = document.documentElement;
+            const themeIcon = document.getElementById('theme-icon');
+            if (body.getAttribute('data-theme') === 'dark') {
+                body.removeAttribute('data-theme');
+                themeIcon.classList.replace('fa-sun', 'fa-moon');
+                localStorage.setItem('theme', 'light');
+            } else {
+                body.setAttribute('data-theme', 'dark');
+                themeIcon.classList.replace('fa-moon', 'fa-sun');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        window.onload = () => {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                document.getElementById('theme-icon').classList.replace('fa-moon', 'fa-sun');
+            }
+            // Start typewriter on load
+            type(); 
+        }
+
+        document.addEventListener('click', function(event) {
+            const navLinks = document.getElementById('nav-links');
+            const hamburger = document.querySelector('.hamburger');
+            if (!navLinks.contains(event.target) && !hamburger.contains(event.target) && navLinks.classList.contains('active')) {
+                navLinks.classList.remove('active');
+            }
+        });
+
+        // --- Infinite Typewriter Logic ---
+        const textArray = ["Next-Generation Online Assessment"];
+        let textIndex = 0;
+        let charIndex = 0;
+        let isDeleting = false;
+        const typewriterElement = document.getElementById("typewriter-text");
+
+        function type() {
+            const currentText = textArray[textIndex];
+            
+            if (isDeleting) {
+                // Erasing logic
+                typewriterElement.textContent = currentText.substring(0, charIndex - 1);
+                charIndex--;
+            } else {
+                // Typing logic
+                typewriterElement.textContent = currentText.substring(0, charIndex + 1);
+                charIndex++;
+            }
+
+            // Speed control
+            let typeSpeed = isDeleting ? 50 : 100; // Erasing is faster than typing
+
+            if (!isDeleting && charIndex === currentText.length) {
+                // Wait at the end of typing before deleting
+                typeSpeed = 2000; 
+                isDeleting = true;
+            } else if (isDeleting && charIndex === 0) {
+                // Wait before typing again
+                isDeleting = false;
+                typeSpeed = 500;
+            }
+
+            setTimeout(type, typeSpeed);
+        }
+    </script>
+</body>
+</html>

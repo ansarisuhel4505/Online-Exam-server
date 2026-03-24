@@ -1,0 +1,330 @@
+const express = require('express');
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const multer = require('multer');
+const mongoose = require('mongoose');
+
+const app = express();
+app.use(express.json());
+app.use(cors());
+
+const SECRET_KEY = "suhel_ai_tech_super_secret_key";
+const upload = multer({ dest: 'uploads/' });
+
+// ==========================================
+// 💽 MONGODB CONNECTION & SCHEMAS (Yahan add karein)
+// ==========================================
+mongoose.connect('mongodb://127.0.0.1:27017/exam_server_db')
+    .then(() => console.log("✅ MongoDB Connected Successfully!"))
+    .catch((err) => console.log("❌ MongoDB Connection Error: ", err));
+
+const userSchema = new mongoose.Schema({
+    role: { type: String, enum: ['Teacher', 'Student', 'Admin'], required: true },
+    username: { type: String, required: true, unique: true },
+    password_hash: { type: String, required: true },
+    name: { type: String, required: true },
+    dob: { type: String },
+    status: { type: String, enum: ['Active', 'Blocked'], default: 'Active' }
+}, { timestamps: true });
+
+const User = mongoose.model('User', userSchema);
+// (Aap baaki Question, Exam, Result schemas bhi yahi add kar sakte hain)
+
+
+// ==========================================
+// 🛡️ AUTHENTICATION MIDDLEWARE
+// ==========================================
+// Ye function har protected route se pehle chalega security check karne ke liye
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Format: "Bearer TOKEN"
+
+    if (!token) return res.status(401).json({ success: false, message: "Access Denied. No token provided." });
+
+    jwt.verify(token, SECRET_KEY, (err, user) => {
+        if (err) return res.status(403).json({ success: false, message: "Invalid or Expired Token." });
+        req.user = user; // Har request me user ka role aur username attach ho jayega
+        next();
+    });
+};
+
+// ==========================================
+// 🛠️ AUTO-INITIALIZE DB (Agar DB khali hai)
+// ==========================================
+const initializeDB = async () => {
+    try {
+        const adminExists = await User.findOne({ username: 'admin@college.com' });
+        if (!adminExists) {
+            await User.create({
+                role: 'Teacher', username: 'admin@college.com',
+                password_hash: await bcrypt.hash('admin123', 10), name: 'Admin Teacher'
+            });
+            console.log("✅ Default Admin Created (admin@college.com / admin123)");
+        }
+
+        const studentExists = await User.findOne({ username: '2025CS001' });
+        if (!studentExists) {
+            await User.create({
+                role: 'Student', username: '2025CS001', dob: '15082005',
+                password_hash: await bcrypt.hash('15082005', 10), name: 'Suhel Ansari'
+            });
+            console.log("✅ Default Student Created (2025CS001 / 15082005)");
+        }
+
+        const qCount = await Question.countDocuments();
+        if (qCount === 0) {
+            await Question.insertMany([
+                { subject: "CSE", text: "What is time complexity of binary search?", options: ["O(1)", "O(n)", "O(log n)", "O(n log n)"], correct_option: "C" },
+                { subject: "CSE", text: "Which language is used in Flutter?", options: ["Java", "Dart", "Python", "C++"], correct_option: "B" }
+            ]);
+            console.log("✅ Sample Questions Inserted");
+        }
+    } catch (err) { console.error("DB Init Error: ", err); }
+};
+initializeDB(); // Call function on server start
+
+
+// ==========================================
+// 🔑 COMMON ROUTE: LOGIN (MongoDB Connected)
+// ==========================================
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+
+        // Find user in MongoDB
+        const user = await User.findOne({ username: username });
+        if (!user) return res.status(401).json({ success: false, message: "User not found" });
+
+        if (user.role === 'Student' && user.status === 'Blocked') {
+            return res.status(403).json({ success: false, message: "Account Blocked." });
+        }
+
+        // Compare Hashed Password
+        const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+        if (!isPasswordValid) return res.status(401).json({ success: false, message: "Invalid Password" });
+
+        // Generate JWT using MongoDB's _id
+        const token = jwt.sign({ user_id: user._id, username: user.username, role: user.role }, SECRET_KEY, { expiresIn: '4h' });
+        
+        res.json({ success: true, token, role: user.role, name: user.name, message: "Login Successful" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Server Error during login" });
+    }
+});
+
+
+// ==========================================
+// 👨‍🏫 TEACHER / ADMIN ROUTES (100% MongoDB Powered)
+// ==========================================
+
+// 1. Bulk Upload Students (Saves to MongoDB)
+app.post('/api/teacher/students/bulk-upload', authenticateToken, upload.single('file'), async (req, res) => {
+    if (req.user.role !== 'Teacher') return res.status(403).json({ message: "Teacher Access Only" });
+
+    try {
+        // Real app me yahan CSV parse hoga. Abhi hum mock array use kar rahe hain format dikhane ke liye:
+        const parsedStudents = [ 
+            { username: "2025CS010", name: "Aman Singh", dob: "25042006" },
+            { username: "2025CS011", name: "Pooja Verma", dob: "10122005" }
+        ];
+
+        let uploadedCount = 0;
+        for (let student of parsedStudents) {
+            const hashedPassword = await bcrypt.hash(student.dob, 10);
+            
+            // Upsert: Agar student pehle se hai toh update, nahi toh naya create
+            await User.findOneAndUpdate(
+                { username: student.username },
+                { role: 'Student', name: student.name, password_hash: hashedPassword, dob: student.dob, status: "Active" },
+                { upsert: true, new: true }
+            );
+            uploadedCount++;
+        }
+        res.json({ success: true, message: `${uploadedCount} Students uploaded & saved to Database.` });
+    } catch (error) {
+        console.error("Bulk Upload Error:", error);
+        res.status(500).json({ success: false, message: "Error uploading students" });
+    }
+});
+
+// 2. Configure & Save New Exam in MongoDB
+app.post('/api/teacher/exam/configure', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'Teacher') return res.status(403).json({ message: "Teacher Access Only" });
+    
+    try {
+        // Frontend se aane wala data (jaise title, marks, time)
+        const { title, duration_minutes, pos_marks, neg_marks } = req.body;
+
+        const newExam = new Exam({
+            title: title || "Mid-Term B.Tech CSE",
+            duration_minutes: duration_minutes || 60,
+            marking_scheme: {
+                correct: pos_marks || 4,
+                wrong: neg_marks || 1,
+                unattempted: 0
+            },
+            created_by: req.user.user_id // Teacher jisne exam banaya
+        });
+
+        await newExam.save();
+        res.json({ success: true, message: "Exam Configured & Saved to Database", exam_id: newExam._id });
+    } catch (error) {
+        console.error("Exam Config Error:", error);
+        res.status(500).json({ success: false, message: "Failed to save exam" });
+    }
+});
+
+// 3. Generate Merit List (Analytics Dashboard)
+app.get('/api/teacher/analytics/merit-list', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'Teacher') return res.status(403).json({ message: "Teacher Access Only" });
+
+    try {
+        // MongoDB se sabhi submitted results fetch karein, aur student ka naam sath me layein (populate)
+        const results = await Result.find({ is_submitted: true })
+            .populate('student_id', 'name username') // Fetch student name & roll no
+            .sort({ 'scorecard.total_score': -1 });  // Sort by highest score (Descending)
+
+        // Data ko clean format me frontend ke liye bhejein
+        const meritList = results.map((result, index) => ({
+            rank: index + 1,
+            roll_no: result.student_id.username,
+            name: result.student_id.name,
+            score: result.scorecard.total_score,
+            correct: result.scorecard.correct_count,
+            wrong: result.scorecard.wrong_count
+        }));
+
+        res.json({ success: true, meritList: meritList });
+    } catch (error) {
+        console.error("Merit List Error:", error);
+        res.status(500).json({ success: false, message: "Failed to generate Merit List" });
+    }
+});
+
+// 4. View Live Proctoring Logs (Dummy for now, normally requires Socket.io)
+app.get('/api/teacher/proctoring/logs', authenticateToken, (req, res) => {
+    if (req.user.role !== 'Teacher') return res.status(403).json({ message: "Teacher Access Only" });
+    res.json({ success: true, logs: [] });
+});
+
+
+// ==========================================
+// 🎓 STUDENT ROUTES (Real Evaluation Engine)
+// ==========================================
+
+// 1. Fetch Exam Questions (Correct Answer Removed for Security)
+app.get('/api/student/exam/questions', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'Student') return res.status(403).json({ message: "Student Access Only" });
+    try {
+        const questions = await Question.find({}, '-correct_option');
+        const formattedQuestions = questions.map(q => ({ id: q._id, text: q.text, options: q.options }));
+        res.json({ success: true, questions: formattedQuestions });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to load questions" });
+    }
+});
+
+// 2. Real Auto-Save Route (Saves directly to MongoDB)
+app.post('/api/student/exam/auto-save', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'Student') return res.status(403).json({ message: "Student Access Only" });
+
+    const { question_id, selected_option } = req.body;
+    const student_id = req.user.user_id;
+
+    try {
+        // Find an active (unsubmitted) result for this student
+        let result = await Result.findOne({ student_id: student_id, is_submitted: false });
+
+        // If no active result exists, create one and link it to a Mock Exam
+        if (!result) {
+            let activeExam = await Exam.findOne(); // Fetch any active exam
+            if (!activeExam) activeExam = await Exam.create({ title: "B.Tech Mid-Term", duration_minutes: 60 });
+            
+            result = new Result({ student_id: student_id, exam_id: activeExam._id, responses: [] });
+        }
+
+        // Check if question is already answered, then update option
+        const existingIndex = result.responses.findIndex(r => r.question_id.toString() === question_id);
+        if (existingIndex > -1) {
+            result.responses[existingIndex].selected_option = selected_option;
+        } else {
+            result.responses.push({ question_id, selected_option }); // Push new answer
+        }
+
+        await result.save(); // Save to DB!
+        res.json({ success: true, message: "Answer auto-saved securely." });
+    } catch (error) {
+        console.error("Auto-save error:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+});
+
+// 3. Real Submit & Auto-Evaluate Logic
+app.post('/api/student/exam/submit', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'Student') return res.status(403).json({ message: "Student Access Only" });
+
+    const student_id = req.user.user_id;
+
+    try {
+        // 1. Fetch Student's Saved Answers from DB
+        let result = await Result.findOne({ student_id: student_id, is_submitted: false });
+        if (!result) return res.status(400).json({ success: false, message: "No active exam found to submit." });
+
+        // 2. Fetch Marking Scheme (+4, -1 rules)
+        const exam = await Exam.findById(result.exam_id);
+        const posMarks = exam ? exam.marking_scheme.correct : 4;
+        const negMarks = exam ? exam.marking_scheme.wrong : 1;
+
+        let marks = 0, correct = 0, wrong = 0;
+
+        // 3. Check each response against the Official Question Bank
+        for (let response of result.responses) {
+            const question = await Question.findById(response.question_id);
+            if (question) {
+                // Yahan Backend Check kar raha hai copy!
+                if (question.correct_option === response.selected_option) {
+                    marks += posMarks;
+                    correct++;
+                } else {
+                    marks -= negMarks;
+                    wrong++;
+                }
+            }
+        }
+
+        const totalQuestions = await Question.countDocuments();
+
+        // 4. Generate Final Scorecard & Lock Exam
+        result.scorecard = {
+            total_score: marks,
+            correct_count: correct,
+            wrong_count: wrong,
+            skipped_count: totalQuestions - (correct + wrong)
+        };
+        result.is_submitted = true; // Paper Locked!
+        await result.save();
+
+        // 5. Send Results to Frontend to generate Chart.js graphs
+        res.json({
+            success: true,
+            message: "Exam Evaluated Successfully",
+            scorecard: result.scorecard
+        });
+
+    } catch (error) {
+        console.error("Evaluation error:", error);
+        res.status(500).json({ success: false, message: "Error evaluating exam" });
+    }
+});
+
+
+// ==========================================
+// 🚀 SERVER START
+// ==========================================
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`🚀 Unified Exam Server running on port ${PORT}`);
+    console.log(`👨‍🏫 Login -> Teacher: admin@college.com / admin123`);
+    console.log(`🎓 Login -> Student: 2025CS001 / 15082005`);
+});

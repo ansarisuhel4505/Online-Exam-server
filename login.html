@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Online Exam Server</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* --- CSS Variables (Matching your theme) --- */
+        :root {
+            --bg-body: #f0f4f8; --text-main: #1e293b; 
+            --hf-bg: #1e293b; --hf-accent: #38bdf8; 
+            --card-bg: #ffffff; --border-color: #e2e8f0; 
+            --shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            --danger: #ef4444;
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #050505; --text-main: #f1f5f9; 
+            --hf-bg: #0f172a; --hf-accent: #60a5fa; 
+            --card-bg: #1e293b; --border-color: #334155; 
+            --shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; transition: 0.3s ease; }
+        body { background-color: var(--bg-body); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+
+        /* Login Container */
+        .login-container {
+            background-color: var(--card-bg);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .login-container h2 { color: var(--hf-accent); margin-bottom: 10px; font-size: 28px; }
+        .login-container p { color: var(--text-main); opacity: 0.8; margin-bottom: 30px; font-size: 14px; }
+
+        /* Form Inputs */
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; }
+        .form-control {
+            width: 100%; padding: 12px; border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-body); color: var(--text-main);
+            outline: none; font-size: 15px;
+        }
+        .form-control:focus { border-color: var(--hf-accent); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2); }
+
+        /* Button & Error Message */
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; background-color: var(--hf-accent); color: #fff; cursor: pointer; margin-top: 10px; }
+        .btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
+        .btn:disabled { background-color: var(--border-color); cursor: not-allowed; transform: none; }
+        
+        #error-msg { color: var(--danger); font-size: 14px; margin-top: 15px; display: none; }
+
+        /* Theme Toggle (Absolute position for login page) */
+        #theme-toggle { position: absolute; top: 20px; right: 20px; background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-main); }
+    </style>
+</head>
+<body>
+
+    <button id="theme-toggle" onclick="toggleTheme()"><i class="fa-solid fa-moon" id="theme-icon"></i></button>
+
+    <div class="login-container">
+        <h2><i class="fa-solid fa-graduation-cap"></i> ExamServer</h2>
+        <p>Login with your Roll No and DOB (DDMMYYYY)</p>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username / Roll No</label>
+                <input type="text" id="username" class="form-control" placeholder="e.g. 2025CS001" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" class="form-control" placeholder="DDMMYYYY or Admin Pass" required>
+            </div>
+
+            <button type="submit" class="btn" id="loginBtn">Secure Login <i class="fa-solid fa-arrow-right-to-bracket"></i></button>
+            <div id="error-msg">Invalid credentials. Please try again.</div>
+        </form>
+    </div>
+
+    <script>
+        // 1. Theme Setup
+        function toggleTheme() {
+            const body = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            if (body.getAttribute('data-theme') === 'dark') {
+                body.removeAttribute('data-theme'); icon.classList.replace('fa-sun', 'fa-moon'); localStorage.setItem('theme', 'light');
+            } else {
+                body.setAttribute('data-theme', 'dark'); icon.classList.replace('fa-moon', 'fa-sun'); localStorage.setItem('theme', 'dark');
+            }
+        }
+        window.onload = () => {
+            if (localStorage.getItem('theme') === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                document.getElementById('theme-icon').classList.replace('fa-moon', 'fa-sun');
+            }
+        }
+
+        // 2. The API Connection Logic
+        document.getElementById('loginForm').addEventListener('submit', async function(event) {
+            event.preventDefault(); // Form ko refresh hone se rokna
+            
+            const usernameInput = document.getElementById('username').value;
+            const passwordInput = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const errorMsg = document.getElementById('error-msg');
+
+            // UI Feedback: Button ko loading state me dalna
+            loginBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Authenticating...';
+            loginBtn.disabled = true;
+            errorMsg.style.display = 'none';
+
+            try {
+                // Backend Server ko POST request bhejna (Make sure server.js is running on port 5000)
+                const response = await fetch('http://localhost:5000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        username: usernameInput, 
+                        password: passwordInput 
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // 🎉 Login Successful! 
+                    // Token aur User details browser me save karein
+                    localStorage.setItem('examToken', data.token);
+                    localStorage.setItem('userRole', data.role);
+                    localStorage.setItem('userName', data.name);
+
+                    // User ke role ke hisab se sahi page par bhejein
+                    if (data.role === 'Teacher') {
+                        window.location.href = 'teacher-portal.html';
+                    } else if (data.role === 'Student') {
+                        window.location.href = 'student-portal.html';
+                    }
+                } else {
+                    // ❌ Login Failed (Wrong password or blocked)
+                    errorMsg.innerText = data.message || 'Invalid Credentials';
+                    errorMsg.style.display = 'block';
+                    loginBtn.innerHTML = 'Secure Login <i class="fa-solid fa-arrow-right-to-bracket"></i>';
+                    loginBtn.disabled = false;
+                }
+
+            } catch (error) {
+                // Server se connect nahi ho paya (Backend is down)
+                console.error("Fetch Error:", error);
+                errorMsg.innerText = 'Cannot connect to Server. Is backend running?';
+                errorMsg.style.display = 'block';
+                loginBtn.innerHTML = 'Secure Login <i class="fa-solid fa-arrow-right-to-bracket"></i>';
+                loginBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

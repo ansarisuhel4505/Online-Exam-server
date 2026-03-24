@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Portal - Exam Server</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        /* --- CSS Variables (Matching Main Page Theme) --- */
+        :root {
+            --bg-body: #f0f4f8; --text-main: #1e293b; 
+            --hf-bg: #1e293b; --hf-text: #f8fafc; --hf-accent: #38bdf8; 
+            --card-bg: #ffffff; --border-color: #e2e8f0; --hf-border: #0f172a; 
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            
+            /* Exam Status Colors */
+            --color-not-visited: #ffffff;
+            --color-not-answered: #ef4444; /* Red */
+            --color-answered: #22c55e; /* Green */
+            --color-marked: #a855f7; /* Purple */
+            --color-marked-answered: #a855f7; /* Handled via CSS pattern */
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #050505; --text-main: #f1f5f9; 
+            --hf-bg: #0f172a; --hf-text: #e2e8f0; --hf-accent: #60a5fa; 
+            --card-bg: #1e293b; --border-color: #334155; --hf-border: #1e293b; 
+            
+            --color-not-visited: #334155;
+        }
+
+        /* --- Global Styles & Header (Same as Main Page) --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; }
+        body { background-color: var(--bg-body); color: var(--text-main); display: flex; flex-direction: column; min-height: 100vh; }
+        
+        header { background-color: var(--hf-bg); color: var(--hf-text); padding: 15px 5%; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; border-bottom: 2px solid var(--hf-border); box-shadow: var(--shadow); }
+        .logo { font-size: 24px; font-weight: 800; color: var(--hf-accent); text-transform: uppercase; }
+        .nav-controls { display: flex; align-items: center; gap: 25px; }
+        .nav-links { list-style: none; display: flex; gap: 20px; }
+        .nav-links a { text-decoration: none; color: var(--hf-text); font-weight: 600; font-size: 15px; position: relative; cursor: pointer;}
+        .nav-links a:hover { color: var(--hf-accent); }
+        
+        #theme-toggle { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--hf-text); }
+        .hamburger { font-size: 24px; cursor: pointer; display: none; color: var(--hf-text); }
+        
+        /* --- SPA View Container --- */
+        main { flex: 1; padding: 30px 5%; width: 100%; max-width: 1400px; margin: 0 auto; }
+        .view-section { display: none; animation: fadeIn 0.5s ease; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- UI Components --- */
+        .card { background-color: var(--card-bg); padding: 25px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: var(--shadow); margin-bottom: 20px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; background-color: var(--hf-accent); color: #fff; transition: 0.2s; }
+        .btn:hover { filter: brightness(1.1); }
+        .btn-outline { background: transparent; border: 2px solid var(--hf-accent); color: var(--text-main); }
+        
+        /* --- 1. Dashboard View --- */
+        .profile-header { display: flex; align-items: center; gap: 20px; }
+        .profile-img { width: 80px; height: 80px; border-radius: 50%; background-color: var(--border-color); object-fit: cover; }
+        
+        /* --- 2. Exam Interface View --- */
+        .exam-layout { display: flex; gap: 20px; flex-wrap: wrap; }
+        .question-area { flex: 3; min-width: 300px; }
+        .nav-panel { flex: 1; min-width: 250px; background-color: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
+        
+        .exam-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        .timer { font-size: 1.5rem; font-weight: bold; color: var(--color-not-answered); }
+        .offline-tag { background: #f59e0b; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px; display: none; }
+        
+        .options-list { list-style: none; margin-top: 20px; }
+        .options-list li { padding: 15px; border: 1px solid var(--border-color); margin-bottom: 10px; border-radius: 8px; cursor: pointer; }
+        .options-list li:hover, .options-list li.selected { background-color: rgba(56, 189, 248, 0.1); border-color: var(--hf-accent); }
+        
+        /* Number Palette */
+        .palette-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 10px; margin-top: 20px; }
+        .q-num { width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; border-radius: 8px; border: 1px solid var(--border-color); font-weight: bold; cursor: pointer; color: #333; }
+        
+        .status-white { background-color: var(--color-not-visited); }
+        .status-red { background-color: var(--color-not-answered); color: #fff; }
+        .status-green { background-color: var(--color-answered); color: #fff; }
+        .status-purple { background-color: var(--color-marked); color: #fff; }
+        .status-purple-green { background: linear-gradient(135deg, var(--color-marked) 50%, var(--color-answered) 50%); color: #fff; }
+        
+        /* --- 3. Results View --- */
+        .charts-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+        .chart-box { background-color: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
+
+        /* Responsive Nav */
+        @media (max-width: 768px) {
+            .hamburger { display: block; }
+            .nav-links { flex-direction: column; position: absolute; top: 100%; right: 5%; background-color: var(--hf-bg); width: 200px; border-radius: 0 0 10px 10px; border: 1px solid var(--hf-border); border-top: none; max-height: 0; overflow: hidden; transition: max-height 0.5s cubic-bezier(0.25, 1, 0.5, 1); }
+            .nav-links.active { max-height: 250px; }
+            .nav-links li { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">Student<span style="color:var(--text-main)">Portal</span></div>
+        <div class="nav-controls">
+            <ul class="nav-links" id="nav-links">
+                <li><a onclick="switchView('dashboard')">Dashboard</a></li>
+                <li><a onclick="switchView('results')">My Results</a></li>
+                <li><a href="#" style="color:#ef4444">Logout</a></li>
+            </ul>
+            <button id="theme-toggle" onclick="toggleTheme()"><i class="fa-solid fa-moon" id="theme-icon"></i></button>
+            <div class="hamburger" onclick="document.getElementById('nav-links').classList.toggle('active')">
+                <i class="fa-solid fa-bars-staggered"></i>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div id="dashboard" class="view-section active">
+            <div class="card profile-header">
+                <img src="https://via.placeholder.com/80" alt="Student Photo" class="profile-img">
+                <div>
+                    <h2>Welcome, Suhel Ansari</h2>
+                    <p style="color: var(--text-muted)">Roll No: 2025CS001 | Course: B.Tech CSE</p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Active Examinations</h3>
+                <div style="margin-top: 15px; padding: 15px; border: 1px solid var(--hf-accent); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h4>Advanced Data Structures</h4>
+                        <p>Duration: 60 Mins | Marks: 100</p>
+                    </div>
+                    <button class="btn" onclick="startSystemCheck()">Proceed to Exam</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="system-check" class="view-section">
+            <div class="card" style="text-align: center;">
+                <h2>Pre-Exam System Check</h2>
+                <p>Please wait while we verify your environment...</p>
+                
+                <div style="margin: 30px 0; text-align: left; max-width: 400px; margin-inline: auto;">
+                    <p><i class="fa-solid fa-wifi" style="color:var(--color-answered)"></i> Internet Speed: Verified</p>
+                    <p><i class="fa-solid fa-camera" style="color:var(--color-answered)"></i> Webcam: Active</p>
+                    <p><i class="fa-solid fa-microphone" style="color:var(--color-answered)"></i> Microphone: Active</p>
+                    <p><i class="fa-brands fa-chrome" style="color:var(--color-answered)"></i> Browser: Supported</p>
+                </div>
+
+                <div style="text-align: left; background: rgba(0,0,0,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <input type="checkbox" id="agree" onchange="document.getElementById('startBtn').disabled = !this.checked">
+                    <label for="agree"> I agree not to switch tabs or exit fullscreen mode during the exam.</label>
+                </div>
+                
+                <button id="startBtn" class="btn" disabled onclick="startLiveExam()">Start Examination Now</button>
+            </div>
+        </div>
+
+        <div id="live-exam" class="view-section">
+            <div class="exam-layout">
+                <div class="question-area card">
+                    <div class="exam-header">
+                        <h3>Q1. What is the time complexity of binary search?</h3>
+                        <div style="display: flex; gap:15px; align-items: center;">
+                            <span class="offline-tag" id="offline-tag"><i class="fa-solid fa-cloud-arrow-down"></i> Saved Locally</span>
+                            <div class="timer"><i class="fa-regular fa-clock"></i> 59:59</div>
+                            <button class="btn btn-outline" title="Virtual Calculator"><i class="fa-solid fa-calculator"></i></button>
+                        </div>
+                    </div>
+                    
+                    <ul class="options-list">
+                        <li onclick="selectOption(this)">A) O(1)</li>
+                        <li onclick="selectOption(this)">B) O(n)</li>
+                        <li onclick="selectOption(this)">C) O(log n)</li>
+                        <li onclick="selectOption(this)">D) O(n log n)</li>
+                    </ul>
+
+                    <div style="margin-top: 30px; display: flex; gap: 10px; justify-content: space-between;">
+                        <div>
+                            <button class="btn btn-outline" onclick="changeStatus('status-purple')">Mark for Review</button>
+                            <button class="btn btn-outline" onclick="changeStatus('status-red')">Clear Response</button>
+                        </div>
+                        <button class="btn" onclick="submitExam()">Submit Final Exam</button>
+                    </div>
+                </div>
+
+                <div class="nav-panel">
+                    <h3>Question Palette</h3>
+                    <div style="font-size: 12px; margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                        <span><div class="q-num status-white" style="display:inline-flex; width:20px; height:20px;"></div> Not Visited</span>
+                        <span><div class="q-num status-red" style="display:inline-flex; width:20px; height:20px;"></div> Not Answered</span>
+                        <span><div class="q-num status-green" style="display:inline-flex; width:20px; height:20px;"></div> Answered</span>
+                        <span><div class="q-num status-purple" style="display:inline-flex; width:20px; height:20px;"></div> Marked</span>
+                    </div>
+                    
+                    <div class="palette-grid">
+                        <div class="q-num status-red" id="q-btn">1</div>
+                        <div class="q-num status-white">2</div>
+                        <div class="q-num status-white">3</div>
+                        <div class="q-num status-white">4</div>
+                        <div class="q-num status-white">5</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="results" class="view-section">
+            <div class="card" style="text-align: center;">
+                <h1 style="color: var(--color-answered)">Exam Submitted Successfully!</h1>
+                <p>Your instant auto-evaluated scorecard is ready.</p>
+                <div style="font-size: 2rem; font-weight: bold; margin: 20px 0;">Total Score: 85 / 100</div>
+            </div>
+
+            <div class="charts-container">
+                <div class="chart-box">
+                    <h3 style="text-align: center; margin-bottom: 10px;">Attempt Accuracy</h3>
+                    <canvas id="pieChart"></canvas>
+                </div>
+                <div class="chart-box">
+                    <h3 style="text-align: center; margin-bottom: 10px;">Subject Wise Performance</h3>
+                    <canvas id="barChart"></canvas>
+                </div>
+                <div class="chart-box">
+                    <h3 style="text-align: center; margin-bottom: 10px;">Peer Comparison</h3>
+                    <canvas id="radarChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+
+  <script>
+    // --- 1. Security Check & Setup ---
+    const token = localStorage.getItem('examToken');
+    if (!token || localStorage.getItem('userRole') !== 'Student') {
+        alert("Unauthorized Access! Redirecting to login...");
+        window.location.href = 'login.html';
+    }
+
+    // Set Welcome Header
+    document.getElementById('welcome-name').innerText = `Welcome, ${localStorage.getItem('userName') || 'Student'}`;
+
+    // Global Variables to store state
+    let examQuestions = [];
+    let currentQuestionIndex = 0;
+    let studentResponses = {}; // { question_id: "selected_option" }
+
+    // --- 2. API Call: Fetch Real Questions from Backend ---
+    async function loadExam() {
+        try {
+            const response = await fetch('http://localhost:5000/api/student/exam/questions', {
+                method: 'GET',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json' 
+                }
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                examQuestions = data.questions;
+                renderQuestion(0);
+                renderQuestionPalette();
+            } else {
+                alert(data.message);
+            }
+        } catch (error) {
+            console.error("Error fetching exam:", error);
+            alert("Failed to load exam from server.");
+        }
+    }
+
+    // --- 3. Render Question on UI ---
+    function renderQuestion(index) {
+        if (!examQuestions || examQuestions.length === 0) return;
+        currentQuestionIndex = index;
+        const q = examQuestions[index];
+        
+        // Setup Question Text
+        const qArea = document.getElementById('question-area-content');
+        let html = `<h3>Q${index + 1}. ${q.text}</h3><ul class="options-list">`;
+        
+        // Setup Options dynamically
+        const optionsLabels = ['A', 'B', 'C', 'D'];
+        q.options.forEach((opt, i) => {
+            const isSelected = studentResponses[q.id] === optionsLabels[i] ? 'selected' : '';
+            html += `<li class="${isSelected}" onclick="selectOption(${q.id}, '${optionsLabels[i]}', this)">
+                        ${optionsLabels[i]}) ${opt}
+                     </li>`;
+        });
+        html += `</ul>`;
+        qArea.innerHTML = html;
+        
+        // Update Palette Status dynamically
+        updatePaletteHighlight(index);
+    }
+
+    // --- 4. Handle Option Selection & Auto-Save API ---
+    async function selectOption(questionId, selectedOpt, element) {
+        // UI Selection Highlight
+        let options = element.parentElement.children;
+        for(let opt of options) opt.classList.remove('selected');
+        element.classList.add('selected');
+
+        // Update Local State
+        studentResponses[questionId] = selectedOpt;
+
+        // Change Palette Color to Green
+        const btn = document.getElementById(`palette-btn-${currentQuestionIndex}`);
+        if(btn) btn.className = 'q-num status-green';
+
+        // Auto-Save to Backend
+        showOfflineTag('Saving...', '#f59e0b');
+        try {
+            await fetch('http://localhost:5000/api/student/exam/auto-save', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question_id: questionId, selected_option: selectedOpt })
+            });
+            showOfflineTag('Saved Auto', '#22c55e');
+            setTimeout(() => document.getElementById('offline-tag').style.display = 'none', 1000);
+        } catch (error) {
+            showOfflineTag('Offline - Saved Locally', '#ef4444');
+        }
+    }
+
+    // --- 5. Submit Exam to Backend ---
+    async function submitExam() {
+        if(!confirm("Are you sure you want to submit? This cannot be undone.")) return;
+        
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+        submitBtn.disabled = true;
+
+        try {
+            const response = await fetch('http://localhost:5000/api/student/exam/submit', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                switchView('results');
+                // Render charts passing the actual backend scorecard
+                renderCharts(data.scorecard);
+            }
+        } catch (error) {
+            alert("Error submitting exam. Please check your connection.");
+            submitBtn.innerHTML = 'Submit Final Exam';
+            submitBtn.disabled = false;
+        }
+    }
+
+    // --- 6. Dynamic Chart.js Rendering ---
+    function renderCharts(scorecard) {
+        Chart.defaults.color = document.documentElement.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b';
+        
+        // Update the big score text
+        document.getElementById('final-score-text').innerText = `Total Score: ${scorecard.total_marks}`;
+
+        // Attempt Accuracy Pie Chart using REAL data
+        new Chart(document.getElementById('pieChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Correct', 'Wrong', 'Skipped'],
+                datasets: [{ 
+                    data: [
+                        scorecard.correct_answers, 
+                        scorecard.wrong_answers, 
+                        examQuestions.length - (scorecard.correct_answers + scorecard.wrong_answers)
+                    ], 
+                    backgroundColor: ['#22c55e', '#ef4444', '#94a3b8'] 
+                }]
+            }
+        });
+        // (Bar chart and Radar chart logic remains similar...)
+    }
+
+    // Helper functions (UI)
+    function showOfflineTag(msg, color) {
+        const tag = document.getElementById('offline-tag');
+        tag.style.display = 'inline-block';
+        tag.style.background = color;
+        tag.innerHTML = msg;
+    }
+
+    function renderQuestionPalette() {
+        const grid = document.getElementById('palette-grid');
+        let html = '';
+        examQuestions.forEach((q, i) => {
+            html += `<div class="q-num status-white" id="palette-btn-${i}" onclick="renderQuestion(${i})">${i + 1}</div>`;
+        });
+        grid.innerHTML = html;
+    }
+
+    function updatePaletteHighlight(activeIndex) {
+        // Just adding a slight border highlight to the current question in palette
+        document.querySelectorAll('.q-num').forEach(el => el.style.border = '1px solid var(--border-color)');
+        const activeBtn = document.getElementById(`palette-btn-${activeIndex}`);
+        if(activeBtn) activeBtn.style.border = '2px solid var(--hf-accent)';
+    }
+
+    function switchView(viewId) {
+        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+        if (viewId === 'live-exam' && examQuestions.length === 0) loadExam(); // Load questions when exam starts
+    }
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = 'login.html';
+    }
+    
+    // Theme toggle function remains same...
+</script>  
+    
+</body>
+</html>
