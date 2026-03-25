@@ -178,38 +178,48 @@
             </div>
 
             <div id="printable-result-area" style="display: none;">
-                <div class="card" style="border-top: 5px solid var(--hf-accent);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px;">
-                        <div>
-                            <h2>Official Scorecard</h2>
-                            <p id="student-name-pdf">Student: Name Here</p>
-                        </div>
-                        <div style="text-align: right;">
-                            <h2><i class="fa-solid fa-award"></i> Total Score: <span id="final-score-text">0</span></h2>
-                            <p>Status: Qualified</p>
-                        </div>
-                    </div>
+                <div style="background: #fff; padding: 30px; border: 2px solid #ccc; color: #000; font-family: Arial, sans-serif;">
                     
-                    <div class="charts-container">
-                        <div class="chart-box">
-                            <h3 style="text-align: center; margin-bottom: 10px;">Performance Accuracy</h3>
-                            <canvas id="pieChart"></canvas>
-                        </div>
-                        <div class="chart-box" style="display: flex; flex-direction: column; justify-content: center; gap: 15px;">
-                            <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(34, 197, 94, 0.1); border-radius: 6px;">
-                                <span><i class="fa-solid fa-check" style="color: var(--color-answered)"></i> Correct Answers</span>
-                                <b id="correct-count">0</b>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 6px;">
-                                <span><i class="fa-solid fa-xmark" style="color: var(--color-not-answered)"></i> Wrong Answers</span>
-                                <b id="wrong-count">0</b>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(148, 163, 184, 0.1); border-radius: 6px;">
-                                <span><i class="fa-solid fa-minus" style="color: #94a3b8"></i> Skipped</span>
-                                <b id="skipped-count">0</b>
-                            </div>
-                        </div>
+                    <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;">
+                        <h1 style="margin: 0; font-size: 24px; color: #003366;">NATIONAL TESTING AGENCY</h1>
+                        <h3 style="margin: 5px 0 0 0; font-size: 16px; color: #555;">Excellence in Assessment</h3>
+                        <h2 style="margin: 10px 0 0 0; font-size: 20px; background: #003366; color: #fff; padding: 5px; display: inline-block;">NTA SCORE CARD</h2>
                     </div>
+
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
+                        <tr>
+                            <td style="border: 1px solid #ccc; padding: 8px; font-weight: bold; width: 25%;">Candidate's Name:</td>
+                            <td style="border: 1px solid #ccc; padding: 8px; width: 25%;" id="nta-student-name">Name</td>
+                            <td style="border: 1px solid #ccc; padding: 8px; font-weight: bold; width: 25%;">Application No:</td>
+                            <td style="border: 1px solid #ccc; padding: 8px; width: 25%;">20261004505</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #ccc; padding: 8px; font-weight: bold;">Roll Number:</td>
+                            <td style="border: 1px solid #ccc; padding: 8px;" id="nta-roll-no">Roll</td>
+                            <td style="border: 1px solid #ccc; padding: 8px; font-weight: bold;">Course:</td>
+                            <td style="border: 1px solid #ccc; padding: 8px;">B.Tech (CSE)</td>
+                        </tr>
+                    </table>
+
+                    <h3 style="font-size: 16px; color: #003366; border-bottom: 1px solid #ccc; padding-bottom: 5px;">NTA Scores Details</h3>
+                    <table style="width: 100%; border-collapse: collapse; text-align: center; margin-bottom: 20px; font-size: 14px;">
+                        <tr style="background: #f0f0f0; font-weight: bold;">
+                            <td style="border: 1px solid #ccc; padding: 10px;">Total Questions Attempted</td>
+                            <td style="border: 1px solid #ccc; padding: 10px;">Correct Answers</td>
+                            <td style="border: 1px solid #ccc; padding: 10px;">Wrong Answers</td>
+                            <td style="border: 1px solid #ccc; padding: 10px; background: #003366; color: #fff;">FINAL NTA SCORE</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #ccc; padding: 15px; font-size: 18px;" id="nta-attempted">0</td>
+                            <td style="border: 1px solid #ccc; padding: 15px; font-size: 18px; color: green;" id="correct-count">0</td>
+                            <td style="border: 1px solid #ccc; padding: 15px; font-size: 18px; color: red;" id="wrong-count">0</td>
+                            <td style="border: 1px solid #ccc; padding: 15px; font-size: 24px; font-weight: bold;" id="final-score-text">0</td>
+                        </tr>
+                    </table>
+
+                    <p style="font-size: 11px; color: #666; text-align: justify; margin-top: 30px; border-top: 1px solid #ccc; padding-top: 10px;">
+                        <b>Disclaimer:</b> This scorecard is auto-generated by the System. NTA Scores are normalized scores across multi-session papers and are based on the relative performance of all those who appeared for the examination in one session.
+                    </p>
                 </div>
             </div>
             <div id="pro-actions" style="display: none; gap: 15px; justify-content: center; margin-top: 20px; flex-wrap: wrap;">
@@ -404,16 +414,17 @@
     // startTimer(60); // 60 minutes for example.
       async function loadExam() {
         try {
-            const response = await fetch('/api/student/exam/questions', {
-                method: 'GET',
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json' 
-                }
-            });
+            const response = await fetch('/api/student/exam/questions', { ... });
             const data = await response.json();
             
-           if (data.success) {
+            // Agar exam pehle hi de chuka hai, seedha result page pe bhejo
+            if (data.already_submitted) {
+                alert(data.message);
+                switchView('results');
+                return;
+            }
+
+            if (data.success) {
                 examQuestions = data.questions;
                 renderQuestion(0);
                 renderQuestionPalette();
@@ -470,31 +481,17 @@
         }
     }
 
-    function renderCharts(scorecard) {
-        document.getElementById('student-name-pdf').innerText = `Student: ${localStorage.getItem('userName') || 'N/A'}`;
+   function renderCharts(scorecard) {
+        // NTA / JEE UI Populating
+        document.getElementById('nta-student-name').innerText = localStorage.getItem('userName') || 'N/A';
+        // Roll No ke liye hum 'Student' role me username fetch kar sakte hain (Yaha placeholder diya hai)
+        document.getElementById('nta-roll-no').innerText = localStorage.getItem('userName') || 'ActiveUser'; 
+        document.getElementById('nta-attempted').innerText = scorecard.correct_count + scorecard.wrong_count;
         document.getElementById('final-score-text').innerText = scorecard.total_score;
         document.getElementById('correct-count').innerText = scorecard.correct_count;
         document.getElementById('wrong-count').innerText = scorecard.wrong_count;
-        document.getElementById('skipped-count').innerText = scorecard.skipped_count;
-
-        Chart.defaults.color = document.documentElement.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b';
         
-        // Remove old canvas and create new to avoid overlap issues
-        const chartContainer = document.getElementById('pieChart').parentElement;
-        chartContainer.innerHTML = '<h3 style="text-align: center; margin-bottom: 10px;">Performance Accuracy</h3><canvas id="pieChart"></canvas>';
-
-        new Chart(document.getElementById('pieChart'), {
-            type: 'doughnut',
-            data: {
-                labels: ['Correct', 'Wrong', 'Skipped'],
-                datasets: [{ 
-                    data: [scorecard.correct_count, scorecard.wrong_count, scorecard.skipped_count], 
-                    backgroundColor: ['#22c55e', '#ef4444', '#94a3b8'],
-                    borderWidth: 0
-                }]
-            },
-            options: { cutout: '70%' }
-        });
+        // Pie chart ab NTA UI mein nahi hai, isliye wo sab hata diya gaya hai.
     }
 
     // Hi-Tech PDF Generator Function
