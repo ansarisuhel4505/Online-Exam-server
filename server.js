@@ -325,6 +325,7 @@ app.post('/api/student/exam/submit', authenticateToken, async (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 Unified Exam Server running on port ${PORT}`);
-    console.log(`👨‍🏫 Login -> Teacher: admin@college.com / admin123`);
-    console.log(`🎓 Login -> Student: 2025CS001 / 15082005`);
 });
+
+// VERCEL KE LIYE YE LINE SABSE ZAROORI HAI 👇
+module.exports = app;
