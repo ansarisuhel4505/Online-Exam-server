@@ -104,10 +104,15 @@
     <main>
         <div id="dashboard" class="view-section active">
             <h2 style="margin-bottom: 20px;">System Overview</h2>
-            <div class="grid-3">
-                <div class="stat-card"><h3>1,250</h3><p>Total Registered Students</p></div>
-                <div class="stat-card" style="border-left-color: var(--success)"><h3>03</h3><p>Active Exams</p></div>
-                <div class="stat-card" style="border-left-color: var(--danger)"><h3>12</h3><p>Security Alerts Today</p></div>
+            <div class="grid-2" style="margin-bottom: 20px;">
+                <div class="stat-card" style="border-left-color: var(--hf-accent)">
+                    <h3>Exams Info</h3>
+                    <p><b>Course:</b> B.Tech CSE | <b>Total Registered:</b> 120 Students</p>
+                </div>
+                <div class="stat-card" style="border-left-color: var(--warning)">
+                    <h3>Live Status</h3>
+                    <p><b>Completed:</b> 45 | <b>Currently Giving Exam:</b> 12</p>
+                </div>
             </div>
         </div>
 
@@ -117,6 +122,9 @@
                     <h2>1.1 Student Management</h2>
                     <div style="display: flex; gap: 10px;">
                         <button class="btn btn-success" onclick="uploadStudents()"><i class="fa-solid fa-file-excel"></i> Bulk Registration (CSV/Excel)</button>
+                        <button class="btn"><i class="fa-solid fa-envelope"></i> Dispatch Credentials</button>
+                        <button class="btn btn-success" onclick="uploadStudents()"><i class="fa-solid fa-file-excel"></i> Bulk Registration</button>
+                        <button class="btn" style="background: var(--warning); color: #000;"><i class="fa-solid fa-key"></i> Generate Passwords</button>
                         <button class="btn"><i class="fa-solid fa-envelope"></i> Dispatch Credentials</button>
                     </div>
                 </div>
@@ -239,11 +247,23 @@
                     <div class="grid-2">
                         <div class="form-group">
                             <label>Exam Title</label>
-                            <input type="text" id="examTitle" class="form-control" value="Mid-Term B.Tech CSE">
+                            <input type="text" id="examTitle" class="form-control" placeholder="Mid-Term B.Tech CSE">
                         </div>
                         <div class="form-group">
                             <label>Duration (Minutes)</label>
-                            <input type="number" id="examDuration" class="form-control" value="60">
+                            <input type="number" id="examDuration" class="form-control" placeholder="60">
+                        </div>
+                    </div>
+                    
+                    <h4 style="margin: 15px 0 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Exam Window (Schedule)</h4>
+                    <div class="grid-2" style="gap: 15px;">
+                        <div class="form-group">
+                            <label>Start Date & Time (Optional)</label>
+                            <input type="datetime-local" id="examStartTime" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>End Date & Time (Optional)</label>
+                            <input type="datetime-local" id="examEndTime" class="form-control">
                         </div>
                     </div>
                     
@@ -264,7 +284,10 @@
         <input type="datetime-local" id="resultTime" class="form-control" title="Leave blank for instant publish">
     </div>
 </div>
-<button class="btn btn-success" type="button" onclick="saveExamConfig()" style="margin-top: 10px;">Save Exam Configuration</button>
+<div style="display: flex; gap: 10px; margin-top: 15px;">
+    <button class="btn btn-success" type="button" onclick="saveExamConfig()"><i class="fa-solid fa-save"></i> Save Configuration</button>
+    <button class="btn btn-danger" type="button" onclick="deleteExam()"><i class="fa-solid fa-trash"></i> Delete Exam</button>
+</div>
                 </form>
             </div>
         </div>
@@ -352,6 +375,8 @@
             const payload = {
                 title: document.getElementById('examTitle').value,
                 duration_minutes: document.getElementById('examDuration').value,
+                start_time: document.getElementById('examStartTime').value, // NAYA ADD HUA
+                end_time: document.getElementById('examEndTime').value,     // NAYA ADD HUA
                 pos_marks: document.getElementById('posMarks').value,
                 neg_marks: document.getElementById('negMarks').value
             };
@@ -367,13 +392,21 @@
                 });
                 const data = await res.json();
                 alert(data.message);
-                btn.innerHTML = 'Save Exam Configuration';
+                btn.innerHTML = 'Save Configuration';
             } catch (err) {
                 alert("Failed to save Exam Configuration.");
-                btn.innerHTML = 'Save Exam Configuration';
+                btn.innerHTML = 'Save Configuration';
             }
         }
 
+        // --- Exam Delete Function ---
+        function deleteExam() {
+            if(confirm("Are you sure you want to delete this exam permanently?")) {
+                alert("Exam Section Deleted Successfully!");
+                // Yaha future mein Backend API ka fetch call aayega actual delete karne ke liye
+            }
+        }
+        
         // --- 4. Fetch Real Merit List API ---
         async function loadMeritList() {
             try {
