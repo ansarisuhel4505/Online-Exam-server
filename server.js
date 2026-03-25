@@ -439,6 +439,59 @@ app.post('/api/student/exam/submit', authenticateToken, async (req, res) => {
     }
 });
 
+// 4. Fetch Answer Key & Question Paper (Only after submission)
+app.get('/api/student/exam/answer-key', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'Student') return res.status(403).json({ message: "Student Access Only" });
+
+    try {
+        const student_id = req.user.user_id;
+        
+        // Check if student has actually submitted the exam
+        const result = await Result.findOne({ student_id: student_id, is_submitted: true });
+        if (!result) {
+            return res.status(403).json({ success: false, message: "Answer Key available only after submission." });
+        }
+
+        const exam = await Exam.findById(result.exam_id);
+        
+        // Check if Result Time has arrived (Teacher setting)
+        if (exam.result_publish_time && new Date() < new Date(exam.result_publish_time)) {
+            return res.status(403).json({ success: false, message: "Answer Key is locked until Result Publish Time." });
+        }
+
+        // Fetch all questions
+        const questions = await Question.find({});
+        
+        // Combine Questions with Student's Responses
+        const answerKeyData = questions.map((q, index) => {
+            const studentResponse = result.responses.find(r => r.question_id.toString() === q._id.toString());
+            const selectedOpt = studentResponse ? studentResponse.selected_option : 'Not Attempted';
+            
+            let isCorrect = false;
+            if (q.type === 'numerical') {
+                isCorrect = parseFloat(q.correct_option) === parseFloat(selectedOpt);
+            } else {
+                isCorrect = q.correct_option === selectedOpt;
+            }
+
+            return {
+                q_num: index + 1,
+                text: q.text,
+                options: q.options,
+                correct_answer: q.correct_option,
+                student_answer: selectedOpt,
+                is_correct: isCorrect,
+                type: q.type
+            };
+        });
+
+        res.json({ success: true, answerKey: answerKeyData, examTitle: exam.title });
+
+    } catch (error) {
+        console.error("Answer Key Error:", error);
+        res.status(500).json({ success: false, message: "Error loading Answer Key" });
+    }
+});
 
 // ==========================================
 // 🚀 SERVER START
