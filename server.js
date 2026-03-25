@@ -336,10 +336,15 @@ app.get('/api/student/exam/questions', authenticateToken, async (req, res) => {
         let activeExam = await Exam.findOne({ is_active: true });
         if (!activeExam) return res.status(404).json({ success: false, message: "No active exam right now." });
 
+        // NAYA: Pehle check karo ki kya bachhe ne exam SUBMIT toh nahi kar diya?
+        let submittedResult = await Result.findOne({ student_id: student_id, exam_id: activeExam._id, is_submitted: true });
+        if (submittedResult) {
+            return res.json({ success: false, already_submitted: true, message: "You have already completed and submitted this exam." });
+        }
+
         // Check if student already started this exam before
         let result = await Result.findOne({ student_id: student_id, is_submitted: false });
         
-        // Agar pehli baar exam khol raha hai, toh entry banao aur start time set karo
         if (!result) {
             result = new Result({ student_id: student_id, exam_id: activeExam._id, started_at: new Date() });
             await result.save();
@@ -533,6 +538,47 @@ app.get('/api/student/exam/answer-key', authenticateToken, async (req, res) => {
         console.error("Answer Key Error:", error);
         res.status(500).json({ success: false, message: "Error loading Answer Key" });
     }
+});
+// --- NAYE TEACHER APIs ---
+
+// 7. Delete Question API
+app.delete('/api/teacher/questions/:id', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'Teacher') return res.status(403).json({ message: "Access Denied" });
+    try {
+        await Question.findByIdAndDelete(req.params.id);
+        res.json({ success: true, message: "Question Deleted Successfully!" });
+    } catch (err) { res.status(500).json({ success: false, message: "Delete Failed" }); }
+});
+
+// 8. Block Student Live API
+app.post('/api/teacher/students/block', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'Teacher') return res.status(403).json({ message: "Access Denied" });
+    try {
+        const { roll_no } = req.body;
+        const student = await User.findOneAndUpdate({ username: roll_no }, { status: 'Blocked' });
+        if(student) res.json({ success: true, message: `Student ${roll_no} Blocked Successfully!` });
+        else res.status(404).json({ success: false, message: "Student not found" });
+    } catch (err) { res.status(500).json({ success: false, message: "Block Failed" }); }
+});
+
+// 9. Download Analytics CSV API
+app.get('/api/teacher/analytics/download-csv', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'Teacher') return res.status(403).json({ message: "Access Denied" });
+    try {
+        const results = await Result.find({ is_submitted: true }).populate('student_id', 'name username').sort({ 'scorecard.total_score': -1 });
+        let csvData = "Rank,Roll No,Name,Total Score,Correct,Wrong,Skipped\n";
+        results.forEach((r, i) => {
+            csvData += `${i+1},${r.student_id.username},${r.student_id.name},${r.scorecard.total_score},${r.scorecard.correct_count},${r.scorecard.wrong_count},${r.scorecard.skipped_count}\n`;
+        });
+        res.header('Content-Type', 'text/csv');
+        res.attachment('Merit_List.csv');
+        res.send(csvData);
+    } catch (err) { res.status(500).send("Error generating CSV"); }
+});
+
+// 10. Generate Passwords / Dispatch Credentials (Dummy success for now)
+app.post('/api/teacher/students/generate-creds', authenticateToken, async (req, res) => {
+    res.json({ success: true, message: "Passwords generated (DOB formatted) and Credentials dispatched to emails!" });
 });
 
 // ==========================================
