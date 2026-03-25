@@ -64,10 +64,11 @@ const examSchema = new mongoose.Schema({
 });
 
 
-// --- 4. RESULT SCHEMA ---
+// --- 4. RESULT SCHEMA (Updated for Timer) ---
 const resultSchema = new mongoose.Schema({
     student_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     exam_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', required: true },
+    started_at: { type: Date, default: Date.now }, // NAYA: Exam kab start kiya uska time track
     responses: [{
         question_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Question' },
         selected_option: { type: String }
@@ -312,18 +313,47 @@ app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
 // 🎓 STUDENT ROUTES (Real Evaluation Engine)
 // ==========================================
 
-// 1. Fetch Exam Questions (Correct Answer Removed for Security)
+// 1. Fetch Exam Questions & Calculate Remaining Time
 app.get('/api/student/exam/questions', authenticateToken, async (req, res) => {
     if (req.user.role !== 'Student') return res.status(403).json({ message: "Student Access Only" });
+    
     try {
+        const student_id = req.user.user_id;
+        
+        // Find any active exam
+        let activeExam = await Exam.findOne({ is_active: true });
+        if (!activeExam) return res.status(404).json({ success: false, message: "No active exam right now." });
+
+        // Check if student already started this exam before
+        let result = await Result.findOne({ student_id: student_id, is_submitted: false });
+        
+        // Agar pehli baar exam khol raha hai, toh entry banao aur start time set karo
+        if (!result) {
+            result = new Result({ student_id: student_id, exam_id: activeExam._id, started_at: new Date() });
+            await result.save();
+        }
+
+        // Bacha hua time calculate karo (Seconds mein)
+        const now = new Date();
+        const startedAt = new Date(result.started_at);
+        const elapsedSeconds = Math.floor((now - startedAt) / 1000);
+        const totalDurationSeconds = activeExam.duration_minutes * 60;
+        let remainingSeconds = totalDurationSeconds - elapsedSeconds;
+
+        if (remainingSeconds < 0) remainingSeconds = 0;
+
+        // Bhejte waqt questions ke answers hide kar do
         const questions = await Question.find({}, '-correct_option');
         const formattedQuestions = questions.map(q => ({ id: q._id, text: q.text, options: q.options }));
-        res.json({ success: true, questions: formattedQuestions });
+        
+        // Frontend ko bhejo: Questions + Bacha hua asali time
+        res.json({ success: true, questions: formattedQuestions, remaining_time: remainingSeconds });
+
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: "Failed to load questions" });
     }
 });
-
 // 2. Real Auto-Save Route (Saves directly to MongoDB)
 app.post('/api/student/exam/auto-save', authenticateToken, async (req, res) => {
     if (req.user.role !== 'Student') return res.status(403).json({ message: "Student Access Only" });
