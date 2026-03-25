@@ -271,19 +271,56 @@
         const q = examQuestions[index];
         
         const qArea = document.getElementById('question-area-content');
-        let html = `<h3>Q${index + 1}. ${q.text}</h3><ul class="options-list">`;
+        let html = `<h3>Q${index + 1}. ${q.text}</h3>`;
         
-        const optionsLabels = ['A', 'B', 'C', 'D'];
-        q.options.forEach((opt, i) => {
-            const isSelected = studentResponses[q.id] === optionsLabels[i] ? 'selected' : '';
-            html += `<li class="${isSelected}" onclick="selectOption('${q.id}', '${optionsLabels[i]}', this)">
-                        ${optionsLabels[i]}) ${opt}
-                     </li>`;
-        });
-        html += `</ul>`;
+        // Agar options hain matlab MCQ hai
+        if (q.options && q.options.length > 0) {
+            html += `<ul class="options-list">`;
+            const optionsLabels = ['A', 'B', 'C', 'D'];
+            q.options.forEach((opt, i) => {
+                const isSelected = studentResponses[q.id] === optionsLabels[i] ? 'selected' : '';
+                html += `<li class="${isSelected}" onclick="selectOption('${q.id}', '${optionsLabels[i]}', this)">
+                            ${optionsLabels[i]}) ${opt}
+                         </li>`;
+            });
+            html += `</ul>`;
+        } 
+        // Agar options nahi hain matlab Numerical Question hai
+        else {
+            let savedAns = studentResponses[q.id] || '';
+            html += `<div style="margin-top: 20px;">
+                        <input type="number" step="any" class="form-control" style="font-size:18px; padding:15px; border: 2px solid var(--hf-accent);" 
+                        placeholder="Type your numerical answer here..." value="${savedAns}" 
+                        onblur="saveNumericalOption('${q.id}', this.value)">
+                        <p style="font-size:12px; color:var(--warning); margin-top:5px;">*Click outside the box to auto-save</p>
+                     </div>`;
+        }
+
         qArea.innerHTML = html;
-        
         updatePaletteHighlight(index);
+    }
+
+    // NAYA FUNCTION: Numerical Answer ko save karne ke liye
+    async function saveNumericalOption(questionId, typedValue) {
+        if(typedValue.trim() === "") return;
+        
+        studentResponses[questionId] = typedValue;
+        
+        const btn = document.getElementById(`palette-btn-${currentQuestionIndex}`);
+        if(btn) btn.className = 'q-num status-green';
+
+        showOfflineTag('Saving...', '#f59e0b');
+        try {
+            await fetch('/api/student/exam/auto-save', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question_id: questionId, selected_option: typedValue })
+            });
+            showOfflineTag('Saved Auto', '#22c55e');
+            setTimeout(() => document.getElementById('offline-tag').style.display = 'none', 1000);
+        } catch (error) {
+            showOfflineTag('Offline - Saved Locally', '#ef4444');
+        }
     }
 
     function renderQuestionPalette() {
