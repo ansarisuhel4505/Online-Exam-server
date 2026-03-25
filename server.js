@@ -1,3 +1,5 @@
+const csv = require('csv-parser');
+const { Readable } = require('stream');
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
@@ -288,6 +290,16 @@ app.post('/api/teacher/questions/add', authenticateToken, async (req, res) => {
         res.json({ success: true, message: "Question saved successfully!" });
     } catch (error) {
         res.status(500).json({ success: false, message: "Error saving question" });
+    }
+});
+// 5.1 Fetch All Questions for Teacher Q-Bank
+app.get('/api/teacher/questions', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'Teacher') return res.status(403).json({ message: "Teacher Access Only" });
+    try {
+        const questions = await Question.find();
+        res.json({ success: true, questions });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to load questions" });
     }
 });
 // 6. Get Dashboard Real-time Stats
