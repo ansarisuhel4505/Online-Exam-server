@@ -10,7 +10,10 @@ app.use(express.json());
 app.use(cors());
 
 const SECRET_KEY = "suhel_ai_tech_super_secret_key";
-const upload = multer({ dest: 'uploads/' });
+
+// Vercel par hard-drive me save nahi kar sakte, isliye memoryStorage use karna zaroori hai
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 // ==========================================
 // 💽 MONGODB CONNECTION & SCHEMAS
