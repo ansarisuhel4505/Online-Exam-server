@@ -122,8 +122,10 @@
                     <h2>1.1 Student Management</h2>
                     <div style="display: flex; gap: 10px;">
                         <button class="btn btn-success" onclick="uploadStudents()"><i class="fa-solid fa-file-excel"></i> Bulk Registration</button>
-                        <button class="btn" style="background: var(--warning); color: #000;"><i class="fa-solid fa-key"></i> Generate Passwords</button>
-                        <button class="btn"><i class="fa-solid fa-envelope"></i> Dispatch Credentials</button>
+                        
+                        <button class="btn" style="background: var(--warning); color: #000;" onclick="generateCreds()"><i class="fa-solid fa-key"></i> Generate Passwords</button>
+                        
+                        <button class="btn" onclick="generateCreds()"><i class="fa-solid fa-envelope"></i> Dispatch Credentials</button>
                     </div>
                 </div>
                 
@@ -445,7 +447,7 @@
                                 Correct: <b style="color:var(--success)">${q.correct_option}</b>
                             </p>
                             <div style="display: flex; gap: 10px; margin-top: 10px;">
-                                <button class="btn btn-danger" style="padding: 3px 8px; font-size: 12px;" onclick="alert('Delete API coming soon!')"><i class="fa-solid fa-trash"></i> Delete</button>
+                                <button class="btn btn-danger" style="padding: 3px 8px; font-size: 12px;" onclick="deleteQuestion('${q._id}')"><i class="fa-solid fa-trash"></i> Delete</button>
                             </div>
                         </div>`;
                     });
@@ -588,6 +590,43 @@
                 },
                 options: { scales: { y: { stacked: true }, x: { stacked: true } } }
             });
+        }
+        // --- NAYA: Delete Question ---
+        async function deleteQuestion(qId) {
+            if(!confirm("Are you sure you want to delete this question?")) return;
+            try {
+                const res = await fetch(`${apiBase}/questions/${qId}`, { method: 'DELETE', headers });
+                const data = await res.json();
+                alert(data.message);
+                loadSavedQuestions(); // Refresh UI
+            } catch(e) { alert("Failed to delete."); }
+        }
+
+        // --- NAYA: Block Student ---
+        async function blockStudentLive() {
+            const rollNo = document.getElementById('blockRollNo').value;
+            if(!rollNo) return alert("Enter Roll No!");
+            try {
+                const res = await fetch(`${apiBase}/students/block`, {
+                    method: 'POST', headers, body: JSON.stringify({ roll_no: rollNo })
+                });
+                const data = await res.json();
+                alert(data.message);
+            } catch(e) { alert("Failed to block."); }
+        }
+
+        // --- NAYA: Download CSV ---
+        function downloadResultsCSV() {
+            window.open(`${apiBase}/analytics/download-csv?token=${token}`, '_blank');
+        }
+
+        // --- NAYA: Generate & Dispatch Creds ---
+        async function generateCreds() {
+            try {
+                const res = await fetch(`${apiBase}/students/generate-creds`, { method: 'POST', headers });
+                const data = await res.json();
+                alert(data.message);
+            } catch(e) { alert("Action failed."); }
         }
     </script>
 </body>
