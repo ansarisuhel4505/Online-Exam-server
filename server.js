@@ -37,19 +37,22 @@ const userSchema = new mongoose.Schema({
     status: { type: String, enum: ['Active', 'Blocked'], default: 'Active' }
 }, { timestamps: true });
 
-// --- 2. QUESTION BANK SCHEMA ---
+// --- 2. QUESTION BANK SCHEMA (Updated) ---
 const questionSchema = new mongoose.Schema({
-    subject: { type: String, required: true },
-    difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'], default: 'Medium' },
+    subject: { type: String, default: "General" },
+    type: { type: String, enum: ['mcq', 'numerical'], default: 'mcq' }, // NAYA
     text: { type: String, required: true },
-    options: { type: [String], required: true }, 
-    correct_option: { type: String, required: true } 
+    options: { type: [String] }, // MCQ ke liye zaroori, numerical ke liye khali
+    correct_option: { type: String, required: true }, // MCQ: A,B,C,D | Numerical: 2.5
+    time_limit: { type: Number, default: 0 }
 });
 
-// --- 3. EXAM CONFIGURATION SCHEMA ---
+// --- 3. EXAM CONFIGURATION SCHEMA (Updated) ---
 const examSchema = new mongoose.Schema({
     title: { type: String, required: true },
     duration_minutes: { type: Number, required: true },
+    start_time: { type: Date }, // NAYA: Exam kab shuru hoga
+    end_time: { type: Date },   // NAYA: Exam kab khatam hoga
     marking_scheme: {
         correct: { type: Number, default: 4 },
         wrong: { type: Number, default: 1 },
@@ -58,6 +61,8 @@ const examSchema = new mongoose.Schema({
     is_active: { type: Boolean, default: true },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' } 
 });
+
+
 
 // --- 4. RESULT SCHEMA ---
 const resultSchema = new mongoose.Schema({
@@ -215,17 +220,19 @@ app.post('/api/teacher/exam/configure', authenticateToken, async (req, res) => {
     
     try {
         // Frontend se aane wala data (jaise title, marks, time)
-        const { title, duration_minutes, pos_marks, neg_marks } = req.body;
+        const { title, duration_minutes, pos_marks, neg_marks, start_time, end_time } = req.body;
 
         const newExam = new Exam({
-            title: title || "Mid-Term B.Tech CSE",
-            duration_minutes: duration_minutes || 60,
+            title: title,
+            duration_minutes: duration_minutes,
+            start_time: start_time ? new Date(start_time) : null, // Date format me save
+            end_time: end_time ? new Date(end_time) : null,
             marking_scheme: {
                 correct: pos_marks || 4,
                 wrong: neg_marks || 1,
                 unattempted: 0
             },
-            created_by: req.user.user_id // Teacher jisne exam banaya
+            created_by: req.user.user_id 
         });
 
         await newExam.save();
@@ -267,6 +274,35 @@ app.get('/api/teacher/analytics/merit-list', authenticateToken, async (req, res)
 app.get('/api/teacher/proctoring/logs', authenticateToken, (req, res) => {
     if (req.user.role !== 'Teacher') return res.status(403).json({ message: "Teacher Access Only" });
     res.json({ success: true, logs: [] });
+});
+// 5. Add New Question to Bank
+app.post('/api/teacher/questions/add', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'Teacher') return res.status(403).json({ message: "Teacher Access Only" });
+    try {
+        const { type, text, options, correct_option, time_limit } = req.body;
+        const newQuestion = new Question({ type, text, options, correct_option, time_limit });
+        await newQuestion.save();
+        res.json({ success: true, message: "Question saved successfully!" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Error saving question" });
+    }
+});
+// 6. Get Dashboard Real-time Stats
+app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
+    try {
+        const totalStudents = await User.countDocuments({ role: 'Student' });
+        const completedExams = await Result.countDocuments({ is_submitted: true });
+        const activeExams = await Exam.countDocuments({ is_active: true });
+        
+        res.json({
+            success: true,
+            totalStudents,
+            completedExams,
+            activeExams
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Stats fetch failed" });
+    }
 });
 
 
@@ -339,12 +375,25 @@ app.post('/api/student/exam/submit', authenticateToken, async (req, res) => {
 
         let marks = 0, correct = 0, wrong = 0;
 
-        // 3. Check each response against the Official Question Bank
+      // 3. Check each response (Smart Evaluation for Numerical)
         for (let response of result.responses) {
             const question = await Question.findById(response.question_id);
             if (question) {
-                // Yahan Backend Check kar raha hai copy!
-                if (question.correct_option === response.selected_option) {
+                let isCorrect = false;
+
+                if (question.type === 'numerical') {
+                    // Smart Check: 2.500 ko 2.5 ke barabar check karega
+                    if (parseFloat(question.correct_option) === parseFloat(response.selected_option)) {
+                        isCorrect = true;
+                    }
+                } else {
+                    // MCQ Check: A, B, C, D strictly match
+                    if (question.correct_option.trim().toUpperCase() === response.selected_option.trim().toUpperCase()) {
+                        isCorrect = true;
+                    }
+                }
+
+                if (isCorrect) {
                     marks += posMarks;
                     correct++;
                 } else {
