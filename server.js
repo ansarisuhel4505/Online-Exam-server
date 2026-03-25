@@ -13,12 +13,21 @@ const SECRET_KEY = "suhel_ai_tech_super_secret_key";
 const upload = multer({ dest: 'uploads/' });
 
 // ==========================================
-// 💽 MONGODB CONNECTION & SCHEMAS (Yahan add karein)
+// 💽 MONGODB CONNECTION & SCHEMAS
 // ==========================================
-mongoose.connect('mongodb://127.0.0.1:27017/exam_server_db')
-    .then(() => console.log("✅ MongoDB Connected Successfully!"))
-    .catch((err) => console.log("❌ MongoDB Connection Error: ", err));
 
+// Vercel par process.env.MONGO_URI chalega, aur testing ke liye aapka direct link chalega
+const mongoURI = process.env.MONGO_URI || "mongodb+srv://suhel:ttwKpbE7MzJJtxlE@m0.u5qynox.mongodb.net/exam_server_db?appName=M0";
+
+mongoose.connect(mongoURI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+})
+.then(() => console.log("✅ Cloud MongoDB Connected Successfully!"))
+.catch((err) => console.log("❌ MongoDB Connection Error: ", err));
+
+
+// --- 1. USER SCHEMA ---
 const userSchema = new mongoose.Schema({
     role: { type: String, enum: ['Teacher', 'Student', 'Admin'], required: true },
     username: { type: String, required: true, unique: true },
@@ -28,9 +37,50 @@ const userSchema = new mongoose.Schema({
     status: { type: String, enum: ['Active', 'Blocked'], default: 'Active' }
 }, { timestamps: true });
 
-const User = mongoose.model('User', userSchema);
-// (Aap baaki Question, Exam, Result schemas bhi yahi add kar sakte hain)
+// --- 2. QUESTION BANK SCHEMA ---
+const questionSchema = new mongoose.Schema({
+    subject: { type: String, required: true },
+    difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'], default: 'Medium' },
+    text: { type: String, required: true },
+    options: { type: [String], required: true }, 
+    correct_option: { type: String, required: true } 
+});
 
+// --- 3. EXAM CONFIGURATION SCHEMA ---
+const examSchema = new mongoose.Schema({
+    title: { type: String, required: true },
+    duration_minutes: { type: Number, required: true },
+    marking_scheme: {
+        correct: { type: Number, default: 4 },
+        wrong: { type: Number, default: 1 },
+        unattempted: { type: Number, default: 0 }
+    },
+    is_active: { type: Boolean, default: true },
+    created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' } 
+});
+
+// --- 4. RESULT SCHEMA ---
+const resultSchema = new mongoose.Schema({
+    student_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    exam_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', required: true },
+    responses: [{
+        question_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Question' },
+        selected_option: { type: String }
+    }],
+    scorecard: {
+        total_score: { type: Number, default: 0 },
+        correct_count: { type: Number, default: 0 },
+        wrong_count: { type: Number, default: 0 },
+        skipped_count: { type: Number, default: 0 }
+    },
+    is_submitted: { type: Boolean, default: false } 
+}, { timestamps: true });
+
+// Export Models
+const User = mongoose.model('User', userSchema);
+const Question = mongoose.model('Question', questionSchema);
+const Exam = mongoose.model('Exam', examSchema);
+const Result = mongoose.model('Result', resultSchema);
 
 // ==========================================
 // 🛡️ AUTHENTICATION MIDDLEWARE
