@@ -27,7 +27,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; }
         body { background-color: var(--bg-body); color: var(--text-main); display: flex; flex-direction: column; min-height: 100vh; }
         
-        /* --- Header & Smooth Hamburger (Same as Home Page) --- */
+        /* --- Header & Smooth Hamburger --- */
         header { background-color: var(--hf-bg); color: var(--hf-text); padding: 15px 5%; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; border-bottom: 2px solid var(--hf-border); box-shadow: var(--shadow); }
         .logo { font-size: 24px; font-weight: 800; color: var(--hf-accent); text-transform: uppercase; cursor: pointer;}
         .nav-controls { display: flex; align-items: center; gap: 20px; }
@@ -92,7 +92,7 @@
                 <li><a onclick="switchView('exam-config')"><i class="fa-solid fa-gear"></i> Exam Config</a></li>
                 <li><a onclick="switchView('proctoring')"><i class="fa-solid fa-shield-halved"></i> Proctoring</a></li>
                 <li><a onclick="switchView('analytics')"><i class="fa-solid fa-chart-pie"></i> Analytics</a></li>
-                <li><a href="#" style="color:var(--danger)"><i class="fa-solid fa-power-off"></i> Logout</a></li>
+                <li><a onclick="logout()" style="color:var(--danger)"><i class="fa-solid fa-power-off"></i> Logout</a></li>
             </ul>
             <button id="theme-toggle" onclick="toggleTheme()"><i class="fa-solid fa-moon" id="theme-icon"></i></button>
             <div class="hamburger" onclick="document.getElementById('nav-links').classList.toggle('active')">
@@ -116,7 +116,7 @@
                 <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
                     <h2>1.1 Student Management</h2>
                     <div style="display: flex; gap: 10px;">
-                        <button class="btn btn-success"><i class="fa-solid fa-file-excel"></i> Bulk Registration (CSV/Excel)</button>
+                        <button class="btn btn-success" onclick="uploadStudents()"><i class="fa-solid fa-file-excel"></i> Bulk Registration (CSV/Excel)</button>
                         <button class="btn"><i class="fa-solid fa-envelope"></i> Dispatch Credentials</button>
                     </div>
                 </div>
@@ -169,7 +169,7 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Question Text (Supports LaTeX $$x^2$$ & Code)</label>
+                            <label>Question Text</label>
                             <textarea class="form-control" rows="3" placeholder="Enter question..."></textarea>
                         </div>
                         <button class="btn" type="button"><i class="fa-solid fa-plus"></i> Add to Pool</button>
@@ -219,10 +219,10 @@
                 <h2>1.4 Live Proctoring & Security Logs</h2>
                 <div style="display: flex; gap: 15px; margin: 15px 0;">
                     <label style="display: flex; align-items: center; gap: 5px; font-size: 14px; font-weight: bold;">
-                        <input type="checkbox" checked> Enforce Safe Exam Browser (SEB) Lock
+                        <input type="checkbox" checked> Enforce SEB Lock
                     </label>
                     <label style="display: flex; align-items: center; gap: 5px; font-size: 14px; font-weight: bold;">
-                        <input type="checkbox"> Enable IP Restricting (Campus Only)
+                        <input type="checkbox"> Enable IP Restricting
                     </label>
                 </div>
 
@@ -263,17 +263,17 @@
             window.location.href = 'login.html';
         }
 
-        const apiBase = 'http://localhost:5000/api/teacher';
+        // Vercel par API base relative path hoga
+        const apiBase = '/api/teacher';
         const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
         // --- 2. Bulk Upload Students API ---
         async function uploadStudents() {
             try {
                 const formData = new FormData();
-                // Note: Frontend par actual file input logic aayega. Abhi ke liye API trigger kar rahe hain.
                 const res = await fetch(`${apiBase}/students/bulk-upload`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }, // FormData ke sath Content-Type auto set hota hai
+                    headers: { 'Authorization': `Bearer ${token}` },
                     body: formData
                 });
                 const data = await res.json();
@@ -346,14 +346,12 @@
             document.getElementById(viewId).classList.add('active');
             document.getElementById('nav-links').classList.remove('active');
             
-            // Auto-load data when specific tabs open
             if(viewId === 'analytics') {
-                renderTeacherCharts(); // Chart.js loader
-                loadMeritList();       // MongoDB Data loader
+                renderTeacherCharts();
+                loadMeritList();       
             }
         }
 
-        // Theme Logic
         function toggleTheme() {
             const body = document.documentElement;
             const icon = document.getElementById('theme-icon');
@@ -364,6 +362,12 @@
             }
         }
 
+        // --- 6. Logout Function ---
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+
         window.onload = () => {
             if (localStorage.getItem('theme') === 'dark') {
                 document.documentElement.setAttribute('data-theme', 'dark');
@@ -371,7 +375,6 @@
             }
         }
 
-        // Chart.js Setup (Visual only)
         let chartInstance = null;
         function renderTeacherCharts() {
             const ctx = document.getElementById('difficultyChart').getContext('2d');
