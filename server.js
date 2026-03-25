@@ -22,10 +22,7 @@ const upload = multer({ storage: storage });
 // Vercel par process.env.MONGO_URI chalega, aur testing ke liye aapka direct link chalega
 const mongoURI = process.env.MONGO_URI || "mongodb+srv://suhel:ttwKpbE7MzJJtxlE@m0.u5qynox.mongodb.net/exam_server_db?appName=M0";
 
-mongoose.connect(mongoURI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-})
+mongoose.connect(mongoURI)
 .then(() => console.log("✅ Cloud MongoDB Connected Successfully!"))
 .catch((err) => console.log("❌ MongoDB Connection Error: ", err));
 
