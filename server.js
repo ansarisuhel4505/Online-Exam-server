@@ -132,7 +132,18 @@ const initializeDB = async () => {
         }
     } catch (err) { console.error("DB Init Error: ", err); }
 };
-initializeDB(); // Call function on server start
+
+// ==========================================
+// 🛠️ ONE-TIME SETUP ROUTE
+// ==========================================
+app.get('/api/setup', async (req, res) => {
+    try {
+        await initializeDB(); // Vercel ab iska wait karega
+        res.send("<h1>✅ Database Setup Complete!</h1><p>Admin aur Student accounts ban gaye hain. Ab aap login page par ja sakte hain.</p>");
+    } catch (error) {
+        res.status(500).send("❌ Setup Failed: " + error.message);
+    }
+});
 
 
 // ==========================================
