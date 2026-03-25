@@ -421,6 +421,45 @@
                 console.error("Failed to load stats", err);
             }
         }
+        // --- NAYA: Load Saved Questions in Q-Bank ---
+        async function loadSavedQuestions() {
+            try {
+                const res = await fetch(`${apiBase}/questions`, { headers });
+                const data = await res.json();
+                
+                if (data.success) {
+                    const qContainer = document.querySelector('#questions .card:nth-child(2)');
+                    
+                    let html = `<div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3>Saved Questions (${data.questions.length})</h3>
+                                    <button class="btn" style="padding: 5px 10px; font-size: 12px;"><i class="fa-solid fa-download"></i> Backup</button>
+                                </div>`;
+                    
+                    data.questions.forEach((q, index) => {
+                        let typeBadge = q.type === 'mcq' ? 'MCQ' : 'Numerical';
+                        html += `
+                        <div style="border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; margin-top: 15px; background: var(--bg-body);">
+                            <p style="font-weight: bold; font-size: 14px;">Q${index + 1}. ${q.text}</p>
+                            <p style="font-size: 12px; color: var(--text-muted); margin-top:5px;">
+                                <span class="badge" style="background:var(--hf-accent)">${typeBadge}</span> | 
+                                Correct: <b style="color:var(--success)">${q.correct_option}</b>
+                            </p>
+                            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                <button class="btn btn-danger" style="padding: 3px 8px; font-size: 12px;" onclick="alert('Delete API coming soon!')"><i class="fa-solid fa-trash"></i> Delete</button>
+                            </div>
+                        </div>`;
+                    });
+
+                    if(data.questions.length === 0) {
+                        html += `<p style="margin-top:15px; color:var(--warning);">No questions added yet.</p>`;
+                    }
+                    
+                    qContainer.innerHTML = html;
+                }
+            } catch (err) {
+                console.error("Failed to load questions", err);
+            }
+        }
 
         // --- NAYA: Save Question to Database ---
         async function saveQuestionDB() {
@@ -492,7 +531,7 @@
         }
 
         // --- 5. Navigation & Setup ---
-        function switchView(viewId) {
+       function switchView(viewId) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             document.getElementById('nav-links').classList.remove('active');
@@ -500,6 +539,9 @@
             if(viewId === 'analytics') {
                 renderTeacherCharts();
                 loadMeritList();       
+            }
+            if(viewId === 'questions') {
+                loadSavedQuestions(); // Yahan call hoga
             }
         }
 
