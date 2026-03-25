@@ -107,11 +107,11 @@
             <div class="grid-2" style="margin-bottom: 20px;">
                 <div class="stat-card" style="border-left-color: var(--hf-accent)">
                     <h3>Exams Info</h3>
-                    <p><b>Course:</b> B.Tech CSE | <b>Total Registered:</b> 120 Students</p>
+                    <p><b>Course:</b> B.Tech CSE | <b>Total Registered:</b> <span id="dash-total-students">Loading...</span></p>
                 </div>
-                <div class="stat-card" style="border-left-color: var(--warning)">
+                <div class="stat-card" style="border-left-color: var(--success)">
                     <h3>Live Status</h3>
-                    <p><b>Completed:</b> 45 | <b>Currently Giving Exam:</b> 12</p>
+                    <p><b>Completed Exams:</b> <span id="dash-completed">Loading...</span> | <b>Active Exams:</b> <span id="dash-active">Loading...</span></p>
                 </div>
             </div>
         </div>
@@ -168,7 +168,7 @@
     <div class="grid-2">
         <div class="card">
             <h3>Add New Question</h3>
-            <form style="margin-top: 15px;">
+            <form style="margin-top: 15px;" id="addQuestionForm">
                 <div class="grid-2" style="gap: 10px;">
                     <div class="form-group">
                         <label>Question Type</label>
@@ -179,13 +179,13 @@
                     </div>
                     <div class="form-group">
                         <label>Time Limit (Optional)</label>
-                        <input type="number" class="form-control" placeholder="Seconds (e.g. 60)">
+                        <input type="number" id="qTime" class="form-control" placeholder="Seconds (e.g. 60)">
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label>Question Text</label>
-                    <textarea class="form-control" rows="2" placeholder="Enter question..."></textarea>
+                    <textarea class="form-control" id="qText" rows="2" placeholder="Enter question..."></textarea>
                 </div>
 
                 <div class="form-group" style="background: rgba(0,0,0,0.02); padding: 10px; border-radius: 6px; border: 1px dashed var(--border-color);">
@@ -196,19 +196,19 @@
 
                 <div id="mcqOptionsBlock">
                     <div class="grid-2" style="gap: 5px;">
-                        <input type="text" class="form-control" placeholder="Option A">
-                        <input type="text" class="form-control" placeholder="Option B">
-                        <input type="text" class="form-control" placeholder="Option C">
-                        <input type="text" class="form-control" placeholder="Option D">
+                        <input type="text" id="optA" class="form-control" placeholder="Option A">
+                        <input type="text" id="optB" class="form-control" placeholder="Option B">
+                        <input type="text" id="optC" class="form-control" placeholder="Option C">
+                        <input type="text" id="optD" class="form-control" placeholder="Option D">
                     </div>
                 </div>
 
                 <div class="form-group" style="margin-top: 10px;">
-                    <label style="color: var(--success);">Correct Answer (For Auto-Check)</label>
-                    <input type="text" class="form-control" placeholder="Type correct option (A/B/C/D) or Numerical value">
+                    <label style="color: var(--success);">Correct Answer</label>
+                    <input type="text" id="qCorrect" class="form-control" placeholder="Type correct option (A/B/C/D) or Numerical value">
                 </div>
 
-                <button class="btn" type="button" style="width: 100%;"><i class="fa-solid fa-plus"></i> Save Question</button>
+                <button class="btn" type="button" onclick="saveQuestionDB()" id="saveQBtn" style="width: 100%;"><i class="fa-solid fa-plus"></i> Save Question</button>
             </form>
         </div>
 
@@ -404,7 +404,62 @@
                 // Yaha future mein Backend API ka fetch call aayega actual delete karne ke liye
             }
         }
-        
+
+        // --- NAYA: Fetch Dashboard Stats ---
+        async function loadDashboardStats() {
+            try {
+                const res = await fetch(`${apiBase}/dashboard/stats`, { headers });
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('dash-total-students').innerText = data.totalStudents;
+                    document.getElementById('dash-completed').innerText = data.completedExams;
+                    document.getElementById('dash-active').innerText = data.activeExams;
+                }
+            } catch (err) {
+                console.error("Failed to load stats", err);
+            }
+        }
+
+        // --- NAYA: Save Question to Database ---
+        async function saveQuestionDB() {
+            const btn = document.getElementById('saveQBtn');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+            btn.disabled = true;
+
+            const qType = document.getElementById('qType').value;
+            const payload = {
+                type: qType,
+                text: document.getElementById('qText').value,
+                time_limit: document.getElementById('qTime').value || 0,
+                correct_option: document.getElementById('qCorrect').value,
+                options: qType === 'mcq' ? [
+                    document.getElementById('optA').value,
+                    document.getElementById('optB').value,
+                    document.getElementById('optC').value,
+                    document.getElementById('optD').value
+                ] : []
+            };
+
+            try {
+                const res = await fetch(`${apiBase}/questions/add`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                
+                alert(data.message);
+                if(data.success) {
+                    document.getElementById('addQuestionForm').reset(); // Form clear kar do
+                }
+            } catch (err) {
+                alert("Failed to save question. Check server.");
+            } finally {
+                btn.innerHTML = '<i class="fa-solid fa-plus"></i> Save Question';
+                btn.disabled = false;
+            }
+        }
         // --- 4. Fetch Real Merit List API ---
         async function loadMeritList() {
             try {
@@ -468,6 +523,8 @@
                 document.documentElement.setAttribute('data-theme', 'dark');
                 document.getElementById('theme-icon').classList.replace('fa-moon', 'fa-sun');
             }
+            // Ye line page khulte hi dashboard stats load kar degi
+            loadDashboardStats();
         }
 
         let chartInstance = null;
