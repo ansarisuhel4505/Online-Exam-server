@@ -51,8 +51,9 @@ const questionSchema = new mongoose.Schema({
 const examSchema = new mongoose.Schema({
     title: { type: String, required: true },
     duration_minutes: { type: Number, required: true },
-    start_time: { type: Date }, // NAYA: Exam kab shuru hoga
-    end_time: { type: Date },   // NAYA: Exam kab khatam hoga
+    start_time: { type: Date }, 
+    end_time: { type: Date },   
+    result_publish_time: { type: Date }, // NAYA: Result kis time dikhana hai
     marking_scheme: {
         correct: { type: Number, default: 4 },
         wrong: { type: Number, default: 1 },
@@ -61,7 +62,6 @@ const examSchema = new mongoose.Schema({
     is_active: { type: Boolean, default: true },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' } 
 });
-
 
 
 // --- 4. RESULT SCHEMA ---
@@ -220,13 +220,14 @@ app.post('/api/teacher/exam/configure', authenticateToken, async (req, res) => {
     
     try {
         // Frontend se aane wala data (jaise title, marks, time)
-        const { title, duration_minutes, pos_marks, neg_marks, start_time, end_time } = req.body;
+       const { title, duration_minutes, pos_marks, neg_marks, start_time, end_time, result_publish_time } = req.body;
 
         const newExam = new Exam({
             title: title,
             duration_minutes: duration_minutes,
-            start_time: start_time ? new Date(start_time) : null, // Date format me save
+            start_time: start_time ? new Date(start_time) : null, 
             end_time: end_time ? new Date(end_time) : null,
+            result_publish_time: result_publish_time ? new Date(result_publish_time) : null, // NAYA
             marking_scheme: {
                 correct: pos_marks || 4,
                 wrong: neg_marks || 1,
@@ -234,6 +235,7 @@ app.post('/api/teacher/exam/configure', authenticateToken, async (req, res) => {
             },
             created_by: req.user.user_id 
         });
+           
 
         await newExam.save();
         res.json({ success: true, message: "Exam Configured & Saved to Database", exam_id: newExam._id });
@@ -415,11 +417,20 @@ app.post('/api/student/exam/submit', authenticateToken, async (req, res) => {
         result.is_submitted = true; // Paper Locked!
         await result.save();
 
-        // 5. Send Results to Frontend to generate Chart.js graphs
+        // 5. Check if Result Publish Time is set in the future
+        let showResultNow = true;
+        let publishTimeMsg = "Available Now";
+        if (exam.result_publish_time && new Date() < new Date(exam.result_publish_time)) {
+            showResultNow = false;
+            publishTimeMsg = new Date(exam.result_publish_time).toLocaleString();
+        }
+
         res.json({
             success: true,
             message: "Exam Evaluated Successfully",
-            scorecard: result.scorecard
+            show_result_now: showResultNow,
+            publish_time_msg: publishTimeMsg,
+            scorecard: showResultNow ? result.scorecard : null // Agar time nahi hua toh null bhejo
         });
 
     } catch (error) {
