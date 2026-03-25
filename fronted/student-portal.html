@@ -333,8 +333,9 @@
 
     let timerInterval;
 
-    function startTimer(durationMinutes) {
-        let endTime = new Date().getTime() + durationMinutes * 60000;
+    // Ab ye function 'Seconds' accept karega (Server se aane wala time)
+    function startTimer(remainingSeconds) {
+        let endTime = new Date().getTime() + (remainingSeconds * 1000);
         
         timerInterval = setInterval(() => {
             let now = new Date().getTime();
@@ -349,16 +350,19 @@
                 return;
             }
             
+            // Hours, Minutes, Seconds convert karna
+            let h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             let m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
             let s = Math.floor((distance % (1000 * 60)) / 1000);
-            document.getElementById('exam-timer').innerHTML = `<i class="fa-regular fa-clock"></i> ${m}:${s < 10 ? '0' : ''}${s}`;
+            
+            let timeString = h > 0 ? `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}` : `${m}:${s < 10 ? '0' : ''}${s}`;
+            document.getElementById('exam-timer').innerHTML = `<i class="fa-regular fa-clock"></i> ${timeString}`;
             
             if(distance < 300000) { // Last 5 mins warning (Red color)
                 document.getElementById('exam-timer').style.color = "var(--color-not-answered)";
             }
         }, 1000);
     }
-
     // Isko 'loadExam()' function ke andar call karna jaha data.success true hota hai:
     // startTimer(60); // 60 minutes for example.
       async function loadExam() {
@@ -372,11 +376,18 @@
             });
             const data = await response.json();
             
-            if (data.success) {
+           if (data.success) {
                 examQuestions = data.questions;
                 renderQuestion(0);
                 renderQuestionPalette();
-                startTimer(60); // YAHAN TIMER START HOGA (60 mins ka example)
+                
+                // Server ne jo bacha hua asali time bheja, us-se timer start karo
+                if (data.remaining_time <= 0) {
+                    alert("Your exam time is already over!");
+                    submitExam(true);
+                } else {
+                    startTimer(data.remaining_time);
+                }
             } else {
                 alert(data.message);
             }
