@@ -6,6 +6,7 @@
     <title>Student Portal - Exam Server</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
         /* --- CSS Variables --- */
@@ -139,7 +140,7 @@
                         <h3>Section A</h3>
                         <div style="display: flex; gap:15px; align-items: center;">
                             <span class="offline-tag" id="offline-tag"><i class="fa-solid fa-cloud-arrow-down"></i> Saved Locally</span>
-                            <div class="timer"><i class="fa-regular fa-clock"></i> 59:59</div>
+                           <div class="timer" id="exam-timer"><i class="fa-regular fa-clock"></i> --:--</div>
                         </div>
                     </div>
                     
@@ -171,16 +172,67 @@
         </div>
 
         <div id="results" class="view-section">
-            <div class="card" style="text-align: center;">
-                <h1 style="color: var(--color-answered)">Exam Submitted Successfully!</h1>
-                <p>Your instant auto-evaluated scorecard is ready.</p>
-                <div id="final-score-text" style="font-size: 2rem; font-weight: bold; margin: 20px 0;">Total Score: --</div>
+            <div class="card" style="text-align: center;" id="result-status-card">
+                <h1 style="color: var(--color-answered)"><i class="fa-solid fa-check-circle"></i> Exam Submitted!</h1>
+                <p id="result-pending-msg" style="display:none; font-size: 1.2rem; margin-top:15px; color: var(--warning);"></p>
             </div>
 
-            <div class="charts-container">
-                <div class="chart-box">
-                    <h3 style="text-align: center; margin-bottom: 10px;">Attempt Accuracy</h3>
-                    <canvas id="pieChart"></canvas>
+            <div id="printable-result-area" style="display: none;">
+                <div class="card" style="border-top: 5px solid var(--hf-accent);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px;">
+                        <div>
+                            <h2>Official Scorecard</h2>
+                            <p id="student-name-pdf">Student: Name Here</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <h2><i class="fa-solid fa-award"></i> Total Score: <span id="final-score-text">0</span></h2>
+                            <p>Status: Qualified</p>
+                        </div>
+                    </div>
+                    
+                    <div class="charts-container">
+                        <div class="chart-box">
+                            <h3 style="text-align: center; margin-bottom: 10px;">Performance Accuracy</h3>
+                            <canvas id="pieChart"></canvas>
+                        </div>
+                        <div class="chart-box" style="display: flex; flex-direction: column; justify-content: center; gap: 15px;">
+                            <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(34, 197, 94, 0.1); border-radius: 6px;">
+                                <span><i class="fa-solid fa-check" style="color: var(--color-answered)"></i> Correct Answers</span>
+                                <b id="correct-count">0</b>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 6px;">
+                                <span><i class="fa-solid fa-xmark" style="color: var(--color-not-answered)"></i> Wrong Answers</span>
+                                <b id="wrong-count">0</b>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(148, 163, 184, 0.1); border-radius: 6px;">
+                                <span><i class="fa-solid fa-minus" style="color: #94a3b8"></i> Skipped</span>
+                                <b id="skipped-count">0</b>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="pro-actions" style="display: none; gap: 15px; justify-content: center; margin-top: 20px; flex-wrap: wrap;">
+                <button class="btn btn-success" onclick="downloadResultPDF()"><i class="fa-solid fa-file-pdf"></i> Download Result (PDF)</button>
+                <button class="btn btn-outline" style="border-color: var(--color-marked);" onclick="viewAnswerKey()"><i class="fa-solid fa-key"></i> View Answer Key / Q-Paper</button>
+            </div>
+        </div>
+
+        <div id="answer-key-section" class="view-section">
+            <div class="card" style="display: flex; justify-content: space-between; align-items: center; border-left: 4px solid var(--hf-accent);">
+                <div>
+                    <h2 id="ak-exam-title">Exam Answer Key</h2>
+                    <p style="color: var(--text-muted)">Detailed evaluation of your paper</p>
+                </div>
+                <div>
+                    <button class="btn btn-outline" onclick="switchView('results')"><i class="fa-solid fa-arrow-left"></i> Back to Result</button>
+                    <button class="btn btn-success" onclick="downloadQuestionPaperPDF()"><i class="fa-solid fa-file-pdf"></i> Save Q-Paper & Key</button>
+                </div>
+            </div>
+
+            <div id="printable-qpaper-area" style="background: var(--card-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <div id="answer-key-content">
+                    <h3 style="text-align:center;">Loading Answer Key...</h3>
                 </div>
             </div>
         </div>
@@ -210,30 +262,7 @@
     function startSystemCheck() { switchView('system-check'); }
     function startLiveExam() { switchView('live-exam'); }
 
-    // --- 3. API Call: Fetch Questions (Vercel URL format) ---
-    async function loadExam() {
-        try {
-            const response = await fetch('/api/student/exam/questions', {
-                method: 'GET',
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json' 
-                }
-            });
-            const data = await response.json();
-            
-            if (data.success) {
-                examQuestions = data.questions;
-                renderQuestion(0);
-                renderQuestionPalette();
-            } else {
-                alert(data.message);
-            }
-        } catch (error) {
-            console.error("Error fetching exam:", error);
-            alert("Failed to load exam from server.");
-        }
-    }
+   
 
     // --- 4. Render UI ---
     function renderQuestion(index) {
@@ -302,13 +331,70 @@
         }
     }
 
-    // --- 6. Submit Exam ---
-    async function submitExam() {
-        if(!confirm("Are you sure you want to submit? This cannot be undone.")) return;
+    let timerInterval;
+
+    function startTimer(durationMinutes) {
+        let endTime = new Date().getTime() + durationMinutes * 60000;
         
+        timerInterval = setInterval(() => {
+            let now = new Date().getTime();
+            let distance = endTime - now;
+            
+            // Time over ho gaya
+            if (distance <= 0) {
+                clearInterval(timerInterval);
+                document.getElementById('exam-timer').innerHTML = `<i class="fa-regular fa-clock"></i> 00:00`;
+                alert("Time is up! Exam is auto-submitting...");
+                submitExam(true); // Auto-submit
+                return;
+            }
+            
+            let m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            let s = Math.floor((distance % (1000 * 60)) / 1000);
+            document.getElementById('exam-timer').innerHTML = `<i class="fa-regular fa-clock"></i> ${m}:${s < 10 ? '0' : ''}${s}`;
+            
+            if(distance < 300000) { // Last 5 mins warning (Red color)
+                document.getElementById('exam-timer').style.color = "var(--color-not-answered)";
+            }
+        }, 1000);
+    }
+
+    // Isko 'loadExam()' function ke andar call karna jaha data.success true hota hai:
+    // startTimer(60); // 60 minutes for example.
+      async function loadExam() {
+        try {
+            const response = await fetch('/api/student/exam/questions', {
+                method: 'GET',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json' 
+                }
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                examQuestions = data.questions;
+                renderQuestion(0);
+                renderQuestionPalette();
+                startTimer(60); // YAHAN TIMER START HOGA (60 mins ka example)
+            } else {
+                alert(data.message);
+            }
+        } catch (error) {
+            console.error("Error fetching exam:", error);
+            alert("Failed to load exam from server.");
+        }
+    }
+
+    async function submitExam(isAutoSubmit = false) {
+        if(!isAutoSubmit && !confirm("Are you sure you want to submit? This cannot be undone.")) return;
+        
+        clearInterval(timerInterval); // Timer stop
         const submitBtn = document.getElementById('submitBtn');
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
-        submitBtn.disabled = true;
+        if(submitBtn) {
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+            submitBtn.disabled = true;
+        }
 
         try {
             const response = await fetch('/api/student/exam/submit', {
@@ -319,35 +405,158 @@
 
             if (data.success) {
                 switchView('results');
-                renderCharts(data.scorecard);
+                
+                if(data.show_result_now) {
+                    // Result Turant Dikhana hai
+                    document.getElementById('printable-result-area').style.display = 'block';
+                    document.getElementById('pro-actions').style.display = 'flex';
+                    renderCharts(data.scorecard);
+                } else {
+                    // Result Hold par hai (Teacher ne time set kiya hai)
+                    document.getElementById('result-pending-msg').style.display = 'block';
+                    document.getElementById('result-pending-msg').innerHTML = `<i class="fa-solid fa-clock"></i> Result will be published automatically on: <b>${data.publish_time_msg}</b>`;
+                }
             }
         } catch (error) {
-            alert("Error submitting exam. Please check your connection.");
-            submitBtn.innerHTML = 'Submit Final Exam';
-            submitBtn.disabled = false;
+            alert("Error submitting exam. Auto-saved locally.");
         }
     }
 
     function renderCharts(scorecard) {
+        document.getElementById('student-name-pdf').innerText = `Student: ${localStorage.getItem('userName') || 'N/A'}`;
+        document.getElementById('final-score-text').innerText = scorecard.total_score;
+        document.getElementById('correct-count').innerText = scorecard.correct_count;
+        document.getElementById('wrong-count').innerText = scorecard.wrong_count;
+        document.getElementById('skipped-count').innerText = scorecard.skipped_count;
+
         Chart.defaults.color = document.documentElement.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b';
-        document.getElementById('final-score-text').innerText = `Total Score: ${scorecard.total_score}`;
+        
+        // Remove old canvas and create new to avoid overlap issues
+        const chartContainer = document.getElementById('pieChart').parentElement;
+        chartContainer.innerHTML = '<h3 style="text-align: center; margin-bottom: 10px;">Performance Accuracy</h3><canvas id="pieChart"></canvas>';
 
         new Chart(document.getElementById('pieChart'), {
             type: 'doughnut',
             data: {
                 labels: ['Correct', 'Wrong', 'Skipped'],
                 datasets: [{ 
-                    data: [
-                        scorecard.correct_count, 
-                        scorecard.wrong_count, 
-                        scorecard.skipped_count
-                    ], 
-                    backgroundColor: ['#22c55e', '#ef4444', '#94a3b8'] 
+                    data: [scorecard.correct_count, scorecard.wrong_count, scorecard.skipped_count], 
+                    backgroundColor: ['#22c55e', '#ef4444', '#94a3b8'],
+                    borderWidth: 0
                 }]
-            }
+            },
+            options: { cutout: '70%' }
         });
     }
 
+    // Hi-Tech PDF Generator Function
+    function downloadResultPDF() {
+        const element = document.getElementById('printable-result-area');
+        
+        // Options for html2pdf
+        const opt = {
+            margin:       1,
+            filename:     `${localStorage.getItem('userName')}_Result.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+
+        // Dark mode me print kala na aaye, isliye temp white mode karna zaroori hai
+        const body = document.documentElement;
+        const wasDark = body.getAttribute('data-theme') === 'dark';
+        if(wasDark) body.removeAttribute('data-theme');
+
+        html2pdf().set(opt).from(element).save().then(() => {
+            if(wasDark) body.setAttribute('data-theme', 'dark'); // Print hone ke baad wapas dark mode
+        });
+    }
+      
+// --- NAYA: Answer Key aur Question Paper Logic ---
+    async function viewAnswerKey() {
+        const btn = event.target;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading...';
+        
+        try {
+            const response = await fetch('/api/student/exam/answer-key', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                switchView('answer-key-section');
+                document.getElementById('ak-exam-title').innerText = `${data.examTitle} - Answer Key`;
+                
+                const akContainer = document.getElementById('answer-key-content');
+                let html = '';
+
+                data.answerKey.forEach(q => {
+                    // Sahi ya galat ke hisab se color set karna
+                    let statusColor = q.is_correct ? 'var(--color-answered)' : 'var(--color-not-answered)';
+                    let statusIcon = q.is_correct ? '<i class="fa-solid fa-check"></i> Correct' : '<i class="fa-solid fa-xmark"></i> Incorrect';
+                    
+                    if (q.student_answer === 'Not Attempted') {
+                        statusColor = '#94a3b8';
+                        statusIcon = '<i class="fa-solid fa-minus"></i> Skipped';
+                    }
+
+                    html += `
+                    <div style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px; padding: 15px; background: var(--bg-body);">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <h4 style="margin:0;">Q${q.q_num}. ${q.text}</h4>
+                            <span style="color: ${statusColor}; font-weight: bold; font-size: 14px;">${statusIcon}</span>
+                        </div>`;
+                    
+                    // Options dikhana (agar MCQ hai)
+                    if (q.type === 'mcq' && q.options.length > 0) {
+                        html += `<ul style="list-style: none; padding-left: 0; margin-bottom: 15px; font-size: 14px;">`;
+                        q.options.forEach(opt => {
+                            html += `<li style="padding: 5px 0;">• ${opt}</li>`;
+                        });
+                        html += `</ul>`;
+                    }
+
+                    // Answers ka comparison box
+                    html += `
+                        <div style="display: flex; gap: 20px; font-size: 14px; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 6px;">
+                            <div><b>Your Answer:</b> <span style="color: ${statusColor}">${q.student_answer}</span></div>
+                            <div><b>Correct Answer:</b> <span style="color: var(--color-answered)">${q.correct_answer}</span></div>
+                        </div>
+                    </div>`;
+                });
+
+                akContainer.innerHTML = html;
+            } else {
+                alert(data.message);
+            }
+        } catch (error) {
+            alert("Error loading Answer Key. Is server running?");
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-key"></i> View Answer Key / Q-Paper';
+        }
+    }
+
+    // Hi-Tech Answer Key / Q-Paper PDF Generator
+    function downloadQuestionPaperPDF() {
+        const element = document.getElementById('printable-qpaper-area');
+        
+        const opt = {
+            margin:       0.5,
+            filename:     `${localStorage.getItem('userName')}_AnswerKey.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+
+        const body = document.documentElement;
+        const wasDark = body.getAttribute('data-theme') === 'dark';
+        if(wasDark) body.removeAttribute('data-theme'); // Force light mode for clear printing
+
+        // Print hone ke baad wapas pichla theme laga do
+        html2pdf().set(opt).from(element).save().then(() => {
+            if(wasDark) body.setAttribute('data-theme', 'dark');
+        });
+    }
     // --- Utility Functions ---
     function showOfflineTag(msg, color) {
         const tag = document.getElementById('offline-tag');
