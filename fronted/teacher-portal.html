@@ -154,34 +154,83 @@
         </div>
 
         <div id="questions" class="view-section">
-            <div class="grid-2">
-                <div class="card">
-                    <h2>1.2 Add New Question</h2>
-                    <form style="margin-top: 15px;">
-                        <div class="grid-2" style="gap: 10px;">
-                            <div class="form-group">
-                                <label>Subject</label>
-                                <select class="form-control"><option>CSE (Programming)</option><option>Physics</option></select>
-                            </div>
-                            <div class="form-group">
-                                <label>Difficulty</label>
-                                <select class="form-control"><option>Easy</option><option>Medium</option><option>Hard</option></select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Question Text</label>
-                            <textarea class="form-control" rows="3" placeholder="Enter question..."></textarea>
-                        </div>
-                        <button class="btn" type="button"><i class="fa-solid fa-plus"></i> Add to Pool</button>
-                    </form>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+        <h2>1.2 Advanced Question Bank</h2>
+        <button class="btn btn-success"><i class="fa-solid fa-file-csv"></i> Upload via CSV/PDF</button>
+    </div>
+    
+    <div class="grid-2">
+        <div class="card">
+            <h3>Add New Question</h3>
+            <form style="margin-top: 15px;">
+                <div class="grid-2" style="gap: 10px;">
+                    <div class="form-group">
+                        <label>Question Type</label>
+                        <select class="form-control" id="qType" onchange="toggleQuestionType()">
+                            <option value="mcq">Bahubikalpiya (MCQ)</option>
+                            <option value="numerical">Numerical (Fill in blank)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Time Limit (Optional)</label>
+                        <input type="number" class="form-control" placeholder="Seconds (e.g. 60)">
+                    </div>
                 </div>
-                <div class="card">
-                    <h2>Question Pooling Status</h2>
-                    <p style="margin-top: 10px; font-size: 14px;">Total Questions in Database: <b>1,045</b></p>
-                    <p style="font-size: 14px;">System will randomly select 50 questions per student from the pool to prevent cheating.</p>
+
+                <div class="form-group">
+                    <label>Question Text</label>
+                    <textarea class="form-control" rows="2" placeholder="Enter question..."></textarea>
+                </div>
+
+                <div class="form-group" style="background: rgba(0,0,0,0.02); padding: 10px; border-radius: 6px; border: 1px dashed var(--border-color);">
+                    <label><i class="fa-regular fa-image"></i> Attach Image (Optional)</label>
+                    <input type="file" class="form-control" accept="image/*" style="margin-bottom: 5px;">
+                    <label style="font-size: 12px;">Image Size: <input type="range" min="10" max="100" value="50" style="width: 100px;"></label>
+                </div>
+
+                <div id="mcqOptionsBlock">
+                    <div class="grid-2" style="gap: 5px;">
+                        <input type="text" class="form-control" placeholder="Option A">
+                        <input type="text" class="form-control" placeholder="Option B">
+                        <input type="text" class="form-control" placeholder="Option C">
+                        <input type="text" class="form-control" placeholder="Option D">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 10px;">
+                    <label style="color: var(--success);">Correct Answer (For Auto-Check)</label>
+                    <input type="text" class="form-control" placeholder="Type correct option (A/B/C/D) or Numerical value">
+                </div>
+
+                <button class="btn" type="button" style="width: 100%;"><i class="fa-solid fa-plus"></i> Save Question</button>
+            </form>
+        </div>
+
+        <div class="card" style="max-height: 550px; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>Saved Questions (1,045)</h3>
+                <button class="btn" style="padding: 5px 10px; font-size: 12px;"><i class="fa-solid fa-download"></i> Backup Q-Bank</button>
+            </div>
+            
+            <div style="border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; margin-top: 15px;">
+                <p style="font-weight: bold; font-size: 14px;">Q1. What is HTML?</p>
+                <p style="font-size: 12px; color: var(--text-muted);">Type: MCQ | Correct: Option A</p>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button class="btn btn-outline" style="padding: 3px 8px; font-size: 12px;"><i class="fa-solid fa-pen"></i> Edit</button>
+                    <button class="btn btn-danger" style="padding: 3px 8px; font-size: 12px;"><i class="fa-solid fa-trash"></i> Delete</button>
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<script>
+    // Ye chota JS function MCQ aur Numerical UI ko switch karega
+    function toggleQuestionType() {
+        const type = document.getElementById('qType').value;
+        document.getElementById('mcqOptionsBlock').style.display = (type === 'mcq') ? 'block' : 'none';
+    }
+</script>
 
         <div id="exam-config" class="view-section">
             <div class="card">
@@ -204,12 +253,18 @@
                             <label>Correct Answer (+)</label>
                             <input type="number" id="posMarks" class="form-control" value="4">
                         </div>
-                        <div class="form-group">
-                            <label>Wrong Answer (-)</label>
-                            <input type="number" id="negMarks" class="form-control" value="1">
-                        </div>
-                    </div>
-                    <button class="btn btn-success" type="button" onclick="saveExamConfig()" style="margin-top: 10px;">Save Exam Configuration</button>
+                       <div class="form-group">
+        <label>Wrong Answer (-)</label>
+        <input type="number" id="negMarks" class="form-control" value="1">
+    </div>
+</div>
+<div class="grid-2" style="margin-top: 15px;">
+    <div class="form-group">
+        <label>Auto-Publish Result Time (Optional)</label>
+        <input type="datetime-local" id="resultTime" class="form-control" title="Leave blank for instant publish">
+    </div>
+</div>
+<button class="btn btn-success" type="button" onclick="saveExamConfig()" style="margin-top: 10px;">Save Exam Configuration</button>
                 </form>
             </div>
         </div>
@@ -221,12 +276,18 @@
                     <label style="display: flex; align-items: center; gap: 5px; font-size: 14px; font-weight: bold;">
                         <input type="checkbox" checked> Enforce SEB Lock
                     </label>
-                    <label style="display: flex; align-items: center; gap: 5px; font-size: 14px; font-weight: bold;">
-                        <input type="checkbox"> Enable IP Restricting
-                    </label>
-                </div>
+                   <label style="display: flex; align-items: center; gap: 5px; font-size: 14px; font-weight: bold;">
+    <input type="checkbox"> Enable IP Restricting
+</label>
+</div>
 
-                <div style="background: #000; color: #0f0; font-family: monospace; padding: 15px; border-radius: 8px; height: 200px; overflow-y: scroll; font-size: 13px;">
+<div style="background: var(--card-bg); padding: 10px; border: 1px solid var(--danger); border-radius: 6px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+    <span style="color: var(--danger); font-weight: bold;">Quick Action:</span>
+    <input type="text" id="blockRollNo" class="form-control" placeholder="Enter Roll No to Block" style="width: 200px; padding: 5px;">
+    <button class="btn btn-danger" style="padding: 5px 15px;" onclick="blockStudentLive()">Block Student Instantly</button>
+</div>
+
+<div style="background: #000; color: #0f0; font-family: monospace; padding: 15px; border-radius: 8px; height: 200px; overflow-y: scroll; font-size: 13px;">
                     [10:12:45 AM] SYSTEM: Live monitoring active.<br>
                     [10:15:02 AM] ALERT: Roll No 2025CS045 attempted Tab Switch. Warning Issued.<br>
                     [10:18:30 AM] CRITICAL: Roll No 2025CS012 exited Fullscreen. Auto-pause triggered.<br>
@@ -239,9 +300,12 @@
         <div id="analytics" class="view-section">
             <div class="grid-2">
                 <div class="card">
-                    <h2>1.5 Auto-Evaluation Merit List</h2>
-                    <button class="btn" onclick="loadMeritList()" style="margin: 10px 0;"><i class="fa-solid fa-rotate"></i> Refresh Ranks</button>
-                    <table id="meritListTable">
+                   <h2>1.5 Auto-Evaluation Merit List</h2>
+<div style="display: flex; gap: 10px; margin: 10px 0;">
+    <button class="btn" onclick="loadMeritList()"><i class="fa-solid fa-rotate"></i> Refresh Ranks</button>
+    <button class="btn btn-success" onclick="downloadResultsCSV()"><i class="fa-solid fa-download"></i> Download Result CSV</button>
+</div>
+<table id="meritListTable">
                         <tbody id="meritListBody">
                             <tr><th>Rank</th><th>Roll No</th><th>Name</th><th>Score</th></tr>
                         </tbody>
